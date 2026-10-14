@@ -1,0 +1,15 @@
+.layout{display:flex;min-height:100vh}
+.sidebar{width:240px;background:#fff;border-right:1px solid var(--bd);padding:16px 12px;position:fixed;top:0;bottom:0;overflow:auto;z-index:20}
+.sidebar .brand{font-weight:700;color:var(--gd);font-size:18px;padding:4px 10px 16px}
+.sidebar a{display:flex;gap:10px;padding:10px 12px;border-radius:8px;color:var(--tx);text-decoration:none;margin-bottom:2px}
+.sidebar a:hover{background:var(--bg)}.sidebar a.on{background:var(--g);color:#fff}.sidebar a i{font-style:normal;width:18px;text-align:center}
+.sidebar hr{border:0;border-top:1px solid var(--bd);margin:10px 0}
+.main-wrap{flex:1;margin-left:240px;min-width:0}
+.topbar{background:#fff;border-bottom:1px solid var(--bd);padding:10px 22px;display:flex;align-items:center;gap:14px;position:sticky;top:0;z-index:10}
+.topbar .t b{color:var(--gd)}.topbar .t small{display:block;color:var(--tx2)}.topbar .sp{flex:1}
+.bell{position:relative;border:1px solid var(--bd);background:#fff;border-radius:8px;padding:6px 10px;cursor:pointer}
+.bell em{position:absolute;top:-6px;right:-6px;background:var(--g);color:#fff;border-radius:10px;font-size:10px;padding:1px 6px;font-style:normal}
+.user{text-align:right;line-height:1.2}.user small{color:var(--g);font-weight:600}
+.burger{display:none;border:1px solid var(--bd);background:#fff;border-radius:8px;padding:6px 10px;cursor:pointer}
+main{padding:22px}main>h2{margin-bottom:16px}
+@media(max-width:860px){.sidebar{transform:translateX(-100%);transition:.2s}.sidebar.open{transform:none;box-shadow:0 0 30px rgba(0,0,0,.2)}.main-wrap{margin-left:0}.burger{display:block}}
