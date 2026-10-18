@@ -1,10 +1,12 @@
 /*
  * PageLayout.js
  * Purpose: the frame shared by every page after login: sidebar, top header and the access check.
- * For DOCTORS it also:
- *   - shows a pop-up when a patient is sent to the doctor (status "In Consultation"),
- *   - keeps a bar at the top of the page naming the patient(s) in consultation,
- *   - opens the full patient record (from the pop-up, the bar, or a record button).
+ *
+ * It also runs the live alerts:
+ *   - Doctor: the "Ready to accept patient" button in the top bar.
+ *   - Staff and admin: a "Doctor Ready for a Patient" pop-up and a green bar listing the ready doctors.
+ *   - Doctor: a pop-up and a yellow bar when a patient is in consultation.
+ *   - Staff and admin: a "Consultation Finished" pop-up when a doctor finishes a consultation.
  *
  * Usage inside a page:
  *   const layout = new PageLayout("patients");
@@ -15,7 +17,7 @@ class PageLayout {
         this.pageId = pageId;
     }
 
-    show(contentBuilder) {
+        show(contentBuilder) {
         // 1. Nobody logged in -> go to the login page.
         const currentUser = authService.getCurrentUser();
         if (currentUser === null) {
@@ -32,7 +34,7 @@ class PageLayout {
 
         const mainElement = document.getElementById("main");
 
-        // 3. Page-level permission check (stops people who type a page address manually).
+        // 3. Page-level permission check.
         if (pageInfo === null || !this.userMayOpenPage(pageInfo)) {
             mainElement.innerHTML = this.buildAccessDeniedHtml(currentUser);
             auditLogService.recordAction("Access denied", "Tried to open page: " + this.pageId);
@@ -40,11 +42,37 @@ class PageLayout {
         }
 
         document.title = pageInfo.title + " - DMC CareVault";
-        contentBuilder(mainElement, currentUser);
 
-        // 4. Doctors: watch for the patient in consultation.
+        // If the page content fails, the error goes to the Console and the alerts still start.
+        try {
+            contentBuilder(mainElement, currentUser);
+        } catch (error) {
+            console.error("[page] could not draw this page:", error);
+            mainElement.innerHTML = '<div class="err">This page could not be drawn. Press F12 and send the red error to the developer.</div>';
+        }
+
+        // 4. Start the live alerts. Each one starts on its own, so a problem in one cannot stop the others.
+        const layout = this;
         if (currentUser.role === "Doctor") {
-            this.startDoctorPatientAlert(currentUser);
+            this.safeStart("patient-in-consultation alert", function () {
+                layout.startDoctorPatientAlert(currentUser);
+            });
+        } else {
+            this.safeStart("finished-visit alert", function () {
+                layout.startDoneAlert(currentUser);
+            });
+            this.safeStart("ready-doctor alert", function () {
+                layout.startReadyDoctorWatch(currentUser);
+            });
+        }
+    }
+
+    // Starts one alert and writes any error to the Console instead of stopping the page.
+    safeStart(alertName, startFunction) {
+        try {
+            startFunction();
+        } catch (error) {
+            console.error("[alerts] could not start the " + alertName + ":", error);
         }
     }
 
@@ -69,6 +97,7 @@ class PageLayout {
         html += '<div class="t"><b>' + htmlHelper.escapeText(settings.systemName) + "</b>";
         html += "<small>" + htmlHelper.escapeText(settings.clinicName) + "</small></div>";
         html += '<div class="sp"></div>';
+        html += this.buildAvailabilityButtonHtml(currentUser);
         html += this.buildBellHtml();
         html += '<div class="user">' + htmlHelper.escapeText(currentUser.fullName);
         html += "<br><small>" + currentUser.role + "</small></div>";
@@ -129,6 +158,7 @@ class PageLayout {
 
     connectLayoutButtons() {
         const waitingCount = this.getWaitingCount();
+        const layout = this;
 
         document.getElementById("menuButton").addEventListener("click", function () {
             document.getElementById("sidebar").classList.toggle("open");
@@ -142,14 +172,17 @@ class PageLayout {
             }
         });
 
+        this.connectAvailabilityButton();
+
         document.getElementById("logoutLink").addEventListener("click", function (event) {
             event.preventDefault();
+            layout.stopDoctorReadyOnLogout();
             authService.logout();
             window.location.href = "../index.html";
         });
     }
 
-    // ============ Doctor: patient in consultation ============
+    // ============ Doctor: patient in consultation (pop-up and yellow bar) ============
 
     startDoctorPatientAlert(currentUser) {
         const layout = this;
@@ -343,7 +376,7 @@ class PageLayout {
             return '<div class="empty">Patient record not found (' + htmlHelper.escapeText(appointment.patientId) + ").</div>";
         }
 
-        return this.buildKeyValueHtml([
+        const rows = [
             ["Patient ID", patient.id],
             ["Full Name", htmlHelper.getFullName(patient)],
             ["Age / Sex", dateHelper.getAgeText(patient.birthDate) + " / " + patient.gender],
@@ -354,7 +387,25 @@ class PageLayout {
             ["Reason", appointment.reason],
             ["Queue Number", appointment.queueNumber],
             ["In Consultation Since", dateHelper.formatTime(appointment.startedAt)]
-        ]);
+        ];
+        rows.push(...this.buildVitalsRows(appointment.vitals));
+
+        return this.buildKeyValueHtml(rows);
+    }
+
+    // Vital signs that staff recorded before the patient was sent to the doctor.
+    buildVitalsRows(vitals) {
+        if (!vitals) {
+            return [["Vital Signs", "Not recorded by staff"]];
+        }
+        return [
+            ["Blood Pressure (mmHg)", vitals.bloodPressure],
+            ["Heart Rate (bpm)", vitals.heartRate],
+            ["Temperature (°C)", vitals.temperature],
+            ["Respiratory Rate", vitals.respiratoryRate],
+            ["Weight (kg)", vitals.weight],
+            ["Height (cm)", vitals.height]
+        ];
     }
 
     // rows: [ [label, value] ] or [ [label, value, true] ] to highlight a real allergy in red.
@@ -386,7 +437,7 @@ class PageLayout {
         return text !== "" && text !== "-" && text !== "none";
     }
 
-    
+    // Full record of one patient, with a button to start a consultation with this patient.
     openPatientRecord(patientId) {
         const patient = patientService.getPatientById(patientId);
         if (patient === null) {
@@ -479,5 +530,401 @@ class PageLayout {
         html += "</div>";
 
         return html;
+    }
+
+    // ============ Staff and Admin: a doctor finished a consultation ============
+
+    startDoneAlert(currentUser) {
+        const layout = this;
+        this.checkDoneAlert(currentUser);
+        window.setInterval(function () {
+            layout.checkDoneAlert(currentUser);
+        }, 4000);
+    }
+
+    checkDoneAlert(currentUser) {
+        const seenStorageName = "dmcv2_seenDoctorDone_" + currentUser.username;
+        const readyFlagName = "dmcv2_doneAlertReady_" + currentUser.username;
+        const finishedList = this.getFinishedVisitsToday();
+
+        // The first time this tab opens, visits that already finished are marked as seen.
+        // So the pop-up only appears for consultations that finish while this page is open.
+        if (sessionStorage.getItem(readyFlagName) === null) {
+            const existingKeys = [];
+            for (let i = 0; i < finishedList.length; i++) {
+                existingKeys.push(this.buildDoneKey(finishedList[i]));
+            }
+            sessionStorage.setItem(seenStorageName, JSON.stringify(existingKeys));
+            sessionStorage.setItem(readyFlagName, "1");
+            return;
+        }
+
+        // Do not cover a dialog the user is already using.
+        if (document.querySelector(".modal-bg") !== null) {
+            return;
+        }
+
+        const seenKeys = this.loadSeenKeys(seenStorageName);
+        for (let i = 0; i < finishedList.length; i++) {
+            const key = this.buildDoneKey(finishedList[i]);
+            if (seenKeys.includes(key) === false) {
+                this.markKeySeen(seenStorageName, key);
+                this.showDoneVisitPopup(finishedList[i]);
+                return;
+            }
+        }
+    }
+
+    // Today's queue entries that the doctor has finished, oldest first.
+    getFinishedVisitsToday() {
+        const today = dateHelper.getTodayString();
+        const appointments = storageService.loadList("appointments");
+        const result = [];
+
+        for (let i = 0; i < appointments.length; i++) {
+            if (appointments[i].date === today && appointments[i].doctorFinishedAt) {
+                result.push(appointments[i]);
+            }
+        }
+
+        result.sort(function (first, second) {
+            return String(first.doctorFinishedAt).localeCompare(String(second.doctorFinishedAt));
+        });
+        return result;
+    }
+
+    buildDoneKey(entry) {
+        return entry.id + "|" + entry.doctorFinishedAt;
+    }
+
+    countPrescriptionsToday(patientId) {
+        const today = dateHelper.getTodayString();
+        const prescriptions = storageService.loadList("prescriptions");
+        let count = 0;
+
+        for (let i = 0; i < prescriptions.length; i++) {
+            if (prescriptions[i].patientId === patientId && prescriptions[i].date === today) {
+                count = count + 1;
+            }
+        }
+        return count;
+    }
+
+    showDoneVisitPopup(entry) {
+        const doctorName = userService.getFullNameByUsername(entry.doctorUsername);
+        const patientName = patientService.getPatientNameById(entry.patientId);
+
+        let bodyHtml = '<p class="popup-lead">' + htmlHelper.escapeText(doctorName) +
+            " has finished the consultation. The bill is ready in Billing.</p>";
+        bodyHtml += this.buildKeyValueHtml([
+            ["Patient", patientName + " (" + entry.patientId + ")"],
+            ["Service Done", entry.reason],
+            ["Queue Number", entry.queueNumber],
+            ["Doctor", doctorName],
+            ["Finished At", dateHelper.formatTime(entry.doctorFinishedAt)],
+            ["Prescriptions Today", this.countPrescriptionsToday(entry.patientId)]
+        ]);
+        bodyHtml += '<div class="popup-actions">' +
+            '<button class="btn ghost" id="doneOkButton">OK</button>' +
+            '<button class="btn" id="doneBillingButton">Go to Billing</button></div>';
+
+        const dialog = new ModalDialog("Consultation Finished", bodyHtml, { isWide: true });
+        dialog.open();
+
+        const dialogElement = dialog.getElement();
+        dialogElement.querySelector("#doneOkButton").addEventListener("click", function () {
+            dialog.close();
+        });
+        dialogElement.querySelector("#doneBillingButton").addEventListener("click", function () {
+            window.location.href = "billing.html";
+        });
+    }
+
+    // Keys already shown in this tab, stored in sessionStorage under the given name.
+    loadSeenKeys(storageName) {
+        const savedText = sessionStorage.getItem(storageName);
+        if (savedText === null) {
+            return [];
+        }
+        try {
+            return JSON.parse(savedText);
+        } catch (error) {
+            return [];
+        }
+    }
+
+    markKeySeen(storageName, key) {
+        const keys = this.loadSeenKeys(storageName);
+        keys.push(key);
+        sessionStorage.setItem(storageName, JSON.stringify(keys));
+    }
+
+    // ============ Doctor: "Ready to accept patient" button (top bar) ============
+
+    buildAvailabilityButtonHtml(currentUser) {
+        if (currentUser.role !== "Doctor") {
+            return "";
+        }
+        return '<div class="availability" id="availabilityBox">' + this.buildAvailabilityInnerHtml(currentUser) + "</div>";
+    }
+
+    buildAvailabilityInnerHtml(currentUser) {
+        if (this.isDoctorReadyNow(currentUser.username)) {
+            const since = this.getDoctorReadySince(currentUser.username);
+            return '<button class="btn ghost" id="availabilityButton">● Accepting patients (click to stop)</button>' +
+                "<small>since " + htmlHelper.escapeText(dateHelper.formatTime(since)) + "</small>";
+        }
+        return '<button class="btn" id="availabilityButton">Ready to accept patient</button>';
+    }
+
+    connectAvailabilityButton() {
+        const button = document.getElementById("availabilityButton");
+        if (button === null) {
+            return;
+        }
+        const layout = this;
+        button.addEventListener("click", function () {
+            layout.toggleDoctorAvailability();
+        });
+    }
+
+    toggleDoctorAvailability() {
+        const currentUser = authService.getCurrentUser();
+        if (currentUser === null) {
+            return;
+        }
+
+        try {
+            const wasReady = this.isDoctorReadyNow(currentUser.username);
+            this.saveDoctorReady(!wasReady);
+
+            if (wasReady) {
+                notifier.showSuccess("You are no longer accepting patients.");
+            } else {
+                notifier.showSuccess("Staff and admin have been told you are ready to accept a patient.");
+            }
+            this.refreshAvailabilityButton(currentUser);
+        } catch (error) {
+            notifier.showError(error.message);
+        }
+    }
+
+    refreshAvailabilityButton(currentUser) {
+        const box = document.getElementById("availabilityBox");
+        if (box === null) {
+            return;
+        }
+        box.innerHTML = this.buildAvailabilityInnerHtml(currentUser);
+        this.connectAvailabilityButton();
+    }
+
+    // Logging out stops "ready", so staff do not keep seeing a doctor who has left.
+    stopDoctorReadyOnLogout() {
+        const currentUser = authService.getCurrentUser();
+        if (currentUser === null || currentUser.role !== "Doctor") {
+            return;
+        }
+        if (this.isDoctorReadyNow(currentUser.username)) {
+            try {
+                this.saveDoctorReady(false);
+            } catch (error) {
+                console.error("Could not stop ready status on logout:", error);
+            }
+        }
+    }
+
+    // ---- Saved availability (stored in the browser under "doctorAvailability") ----
+
+    findEntryInList(entries, username) {
+        for (let i = 0; i < entries.length; i++) {
+            if (entries[i].doctorUsername === username) {
+                return entries[i];
+            }
+        }
+        return null;
+    }
+
+    isDoctorReadyNow(username) {
+        const entry = this.findEntryInList(storageService.loadList("doctorAvailability"), username);
+        return entry !== null && entry.isReady === true;
+    }
+
+    getDoctorReadySince(username) {
+        const entry = this.findEntryInList(storageService.loadList("doctorAvailability"), username);
+        if (entry === null) {
+            return null;
+        }
+        return entry.readyAt;
+    }
+
+    // Saves "ready" (true) or "not ready" (false) for the logged-in doctor only.
+        // Saves "ready" (true) or "not ready" (false) for the logged-in doctor only.
+    saveDoctorReady(isReady) {
+        permissionService.requirePermission("consultations.write");
+
+        const currentUser = authService.getCurrentUser();
+        const entries = storageService.loadList("doctorAvailability");
+        const now = new Date().toISOString();
+
+        let entry = this.findEntryInList(entries, currentUser.username);
+        if (entry === null) {
+            entry = { doctorUsername: currentUser.username, isReady: false, readyAt: null, updatedAt: null };
+            entries.push(entry);
+        }
+
+        entry.isReady = isReady === true;
+        entry.updatedAt = now;
+        if (isReady === true) {
+            entry.readyAt = now;
+        }
+        storageService.saveList("doctorAvailability", entries);
+        console.log("[ready] saved for " + currentUser.username + ": isReady = " + entry.isReady);
+
+        if (isReady === true) {
+            auditLogService.recordAction("Doctor ready for patients", currentUser.username);
+        } else {
+            auditLogService.recordAction("Doctor stopped accepting patients", currentUser.username);
+        }
+    }
+
+    // ============ Staff and Admin: a doctor is ready to accept a patient ============
+
+        startReadyDoctorWatch(currentUser) {
+        const layout = this;
+        console.log("[ready-alert] watching for ready doctors (user: " + currentUser.username + ")");
+        this.checkReadyDoctorsSafely(currentUser);
+
+        // Checks every 2 seconds. The storage listener below reacts at once when the doctor's tab saves.
+        window.setInterval(function () {
+            layout.checkReadyDoctorsSafely(currentUser);
+        }, 2000);
+
+        window.addEventListener("storage", function (event) {
+            if (event.key === storageService.keyPrefix + "doctorAvailability") {
+                console.log("[ready-alert] doctor availability changed in another tab");
+                layout.checkReadyDoctorsSafely(currentUser);
+            }
+        });
+    }
+
+    checkReadyDoctorsSafely(currentUser) {
+        try {
+            this.checkReadyDoctors(currentUser);
+        } catch (error) {
+            console.error("[ready-alert] check failed:", error);
+        }
+    }
+
+    checkReadyDoctors(currentUser) {
+        const readyList = this.getReadyDoctorList();
+        this.updateReadyDoctorBar(readyList);
+
+        // Log only when the number of ready doctors changes, so the Console is not flooded.
+        if (this.lastReadyCount !== readyList.length) {
+            this.lastReadyCount = readyList.length;
+            console.log("[ready-alert] ready doctors now: " + readyList.length);
+        }
+
+        const seenName = "dmcv2_seenReady_" + currentUser.username;
+        const seenKeys = this.loadSeenKeys(seenName);
+
+        // Find a ready doctor whose "ready" moment this tab has not shown yet.
+        let pending = null;
+        for (let i = 0; i < readyList.length; i++) {
+            if (seenKeys.includes(this.buildReadyKey(readyList[i])) === false) {
+                pending = readyList[i];
+                break;
+            }
+        }
+        if (pending === null) {
+            return;
+        }
+
+        // Wait until any open dialog is closed. This check runs again every 2 seconds.
+        if (document.querySelector(".modal-bg") !== null) {
+            return;
+        }
+
+        console.log("[ready-alert] showing the pop-up for " + pending.doctorUsername);
+        this.markKeySeen(seenName, this.buildReadyKey(pending));
+        this.showDoctorReadyPopup(pending);
+    }
+    // Doctors who are ready right now. The one who became ready first comes first.
+    getReadyDoctorList() {
+        const entries = storageService.loadList("doctorAvailability");
+        const readyList = [];
+        for (let i = 0; i < entries.length; i++) {
+            if (entries[i].isReady === true) {
+                readyList.push(entries[i]);
+            }
+        }
+        readyList.sort(function (first, second) {
+            return String(first.readyAt).localeCompare(String(second.readyAt));
+        });
+        return readyList;
+    }
+
+    buildReadyKey(entry) {
+        return entry.doctorUsername + "|" + entry.readyAt;
+    }
+
+    // Green bar at the top of the page, listing every doctor who is ready right now.
+    updateReadyDoctorBar(readyList) {
+        let bar = document.getElementById("readyDoctorBar");
+
+        if (readyList.length === 0) {
+            if (bar !== null) {
+                bar.remove();
+            }
+            return;
+        }
+
+        if (bar === null) {
+            document.getElementById("main").insertAdjacentHTML("afterbegin", '<div id="readyDoctorBar" class="ready-bar"></div>');
+            bar = document.getElementById("readyDoctorBar");
+        }
+
+        // Rewrite the bar only when something changed.
+        const newHtml = this.buildReadyBarHtml(readyList);
+        if (bar.lastHtml !== newHtml) {
+            bar.innerHTML = newHtml;
+            bar.lastHtml = newHtml;
+        }
+    }
+
+    buildReadyBarHtml(readyList) {
+        let html = "";
+        for (let i = 0; i < readyList.length; i++) {
+            const doctorName = userService.getFullNameByUsername(readyList[i].doctorUsername);
+            html += '<div class="ready-bar-row"><span>✔ Ready to accept a patient:</span> <b>' +
+                htmlHelper.escapeText(doctorName) + "</b> <small>since " +
+                htmlHelper.escapeText(dateHelper.formatTime(readyList[i].readyAt)) + "</small></div>";
+        }
+        return html;
+    }
+
+    showDoctorReadyPopup(entry) {
+        const doctorName = userService.getFullNameByUsername(entry.doctorUsername);
+
+        let bodyHtml = '<p class="popup-lead"><b>' + htmlHelper.escapeText(doctorName) +
+            "</b> is now accepting a patient.</p>";
+        bodyHtml += this.buildKeyValueHtml([
+            ["Doctor", doctorName],
+            ["Ready Since", dateHelper.formatTime(entry.readyAt)]
+        ]);
+        bodyHtml += '<div class="popup-actions">' +
+            '<button class="btn ghost" id="readyOkButton">OK</button>' +
+            '<button class="btn" id="readyQueueButton">Go to Queuing</button></div>';
+
+        const dialog = new ModalDialog("Doctor Ready for a Patient", bodyHtml, { isWide: true });
+        dialog.open();
+
+        const dialogElement = dialog.getElement();
+        dialogElement.querySelector("#readyOkButton").addEventListener("click", function () {
+            dialog.close();
+        });
+        dialogElement.querySelector("#readyQueueButton").addEventListener("click", function () {
+            window.location.href = "appointments.html";
+        });
     }
 }

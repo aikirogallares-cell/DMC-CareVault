@@ -144,7 +144,7 @@ class ConsultationsPage {
         const fields = [];
         fields.push({ name: "patientId", label: "Patient", type: "select", options: patientService.getPatientSelectOptions(), isFullWidth: true, defaultValue: chosenPatientId });
         fields.push({ name: "date", label: "Date", type: "date", isRequired: true, defaultValue: dateHelper.getTodayString() });
-        fields.push({ name: "status", label: "Status", type: "select", options: formBuilder.createOptionsFromTexts(["In Progress", "Completed"]) });
+        fields.push({ name: "status", label: "Consultation Status", type: "select", options: formBuilder.createOptionsFromTexts(["In Progress", "Completed"]) })
         fields.push({ name: "complaint", label: "Chief Complaint", type: "text", isRequired: true, isFullWidth: true });
         fields.push({ name: "symptoms", label: "Symptoms", type: "textarea", isFullWidth: true });
 
@@ -164,7 +164,7 @@ class ConsultationsPage {
         return fields;
     }
 
-    openConsultationForm(consultationToEdit) {
+        openConsultationForm(consultationToEdit) {
         const page = this;
         const fields = this.buildFormFields(consultationToEdit !== null);
 
@@ -180,21 +180,45 @@ class ConsultationsPage {
             saveButtonText: "Save Consultation",
             onSave: function () {
                 const formValues = formBuilder.readFormValues(fields);
+                formValues.id = consultationToEdit === null ? "" : consultationToEdit.id;
 
-                if (consultationToEdit === null) {
-                    formValues.id = "";
-                } else {
-                    formValues.id = consultationToEdit.id;
-                }
-
-                consultationService.saveConsultation(formValues);
-                notifier.showSuccess("Consultation saved successfully.");
+                const result = consultationService.saveConsultation(formValues);
+                page.showSaveMessage(formValues.status, result);
                 page.refreshTable();
             }
         });
         dialog.open();
-    }
 
+        // The save button tells the doctor what will happen when they press it.
+        const dialogElement = dialog.getElement();
+        const statusBox = dialogElement.querySelector("#field_status");
+        const saveButton = dialogElement.querySelector("#dialogSaveButton");
+        const updateSaveButtonText = function () {
+            if (statusBox.value === "Completed") {
+                saveButton.textContent = "Finish & Send to Billing";
+            } else {
+                saveButton.textContent = "Save Consultation";
+            }
+        };
+        statusBox.addEventListener("change", updateSaveButtonText);
+        updateSaveButtonText();
+    }
+        showSaveMessage(status, result) {
+        if (status !== "Completed") {
+            notifier.showSuccess("Consultation saved successfully.");
+            return;
+        }
+        if (result.finishedEntry !== null) {
+            notifier.showSuccess("Consultation finished. Staff and admin have been notified, and the bill is ready in Billing.");
+            return;
+        }
+        if (result.isNewConsultation) {
+            notifier.showWarning("Consultation saved, but this patient is not in consultation with you today, so no bill was created.");
+            return;
+        }
+        notifier.showSuccess("Consultation saved.");
+    }
+    
     openViewDialog(consultation) {
         const vitalsText = "BP " + consultation.bloodPressure + " | HR " + consultation.heartRate +
             " | Temp " + consultation.temperature + " °C | RR " + consultation.respiratoryRate +

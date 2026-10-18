@@ -103,3 +103,10 @@ th{font-size:12px;color:var(--tx2);background:var(--bg)}td .btn{margin-right:4px
 .receipt-item{margin:6px 0}
 .receipt-item small{color:var(--tx2)}
 .receipt-total{font-weight:600;font-size:15px}
+
+/* Doctor "Ready to accept patient" button (top bar) and the ready bar for staff and admin */
+.availability{display:flex;align-items:center;gap:8px;margin-right:4px}
+.availability small{color:var(--g);white-space:nowrap}
+.ready-bar{background:var(--gl);border:1px solid #a5d6a7;border-left:5px solid var(--g);border-radius:8px;padding:10px 14px;margin-bottom:16px;display:flex;flex-direction:column;gap:8px}
+.ready-bar-row{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.ready-bar-row b{color:var(--gd)}

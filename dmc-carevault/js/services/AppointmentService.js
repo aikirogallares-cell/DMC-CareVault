@@ -310,7 +310,34 @@ class AppointmentService {
         }
         return "";
     }
+    
+    finishConsultationFromDoctor(patientId) {
+        permissionService.requirePermission("consultations.write");
 
+        const currentUser = authService.getCurrentUser();
+        const today = dateHelper.getTodayString();
+        const savedAppointments = storageService.loadList("appointments");
+
+        for (let i = 0; i < savedAppointments.length; i++) {
+            const entry = savedAppointments[i];
+            const isThisVisit = entry.patientId === patientId &&
+                entry.doctorUsername === currentUser.username &&
+                entry.date === today &&
+                entry.status === "In Consultation";
+
+            if (isThisVisit) {
+                const now = new Date().toISOString();
+                entry.status = "Completed";
+                entry.completedAt = now;
+                entry.doctorFinishedAt = now;
+                entry.doctorFinishedBy = currentUser.username;
+                storageService.saveList("appointments", savedAppointments);
+                auditLogService.recordAction("Consultation finished", entry.id + " (" + patientId + ")");
+                return entry;
+            }
+        }
+        return null;
+    }
     getNextQueueNumber(appointmentList, date) {
         let highestNumber = 0;
         for (let i = 0; i < appointmentList.length; i++) {
@@ -325,3 +352,79 @@ class AppointmentService {
 }
 
 const appointmentService = new AppointmentService();
+
+/*
+ * DoctorAvailabilityService
+ * Lets a doctor tell staff and admin "I am ready to accept a patient".
+ * Each doctor has one entry: { doctorUsername, isReady, readyAt, updatedAt }.
+ *   isReady  true while the doctor is accepting patients
+ *   readyAt  when the doctor last pressed "Ready to accept patient"
+ */
+class DoctorAvailabilityService {
+    getAllEntries() {
+        return storageService.loadList("doctorAvailability");
+    }
+
+    findEntry(entries, username) {
+        for (let i = 0; i < entries.length; i++) {
+            if (entries[i].doctorUsername === username) {
+                return entries[i];
+            }
+        }
+        return null;
+    }
+
+    getStatusFor(username) {
+        return this.findEntry(this.getAllEntries(), username);
+    }
+
+    isReadyNow(username) {
+        const entry = this.getStatusFor(username);
+        return entry !== null && entry.isReady === true;
+    }
+
+    // Doctor only. Always uses the logged-in doctor, so one doctor cannot change another doctor's status.
+    setReady(isReady) {
+        permissionService.requirePermission("consultations.write");
+
+        const currentUser = authService.getCurrentUser();
+        const entries = storageService.loadList("doctorAvailability");
+        const now = new Date().toISOString();
+
+        let entry = this.findEntry(entries, currentUser.username);
+        if (entry === null) {
+            entry = { doctorUsername: currentUser.username, isReady: false, readyAt: null, updatedAt: null };
+            entries.push(entry);
+        }
+
+        entry.isReady = isReady === true;
+        entry.updatedAt = now;
+        if (isReady === true) {
+            entry.readyAt = now;
+        }
+
+        storageService.saveList("doctorAvailability", entries);
+
+        if (isReady === true) {
+            auditLogService.recordAction("Doctor ready for patients", currentUser.username);
+        } else {
+            auditLogService.recordAction("Doctor stopped accepting patients", currentUser.username);
+        }
+    }
+
+    getReadyDoctors() {
+        const readyList = [];
+        const entries = this.getAllEntries();
+        for (let i = 0; i < entries.length; i++) {
+            if (entries[i].isReady === true) {
+                readyList.push(entries[i]);
+            }
+        }
+        readyList.sort(function (first, second) {
+            return String(first.readyAt).localeCompare(String(second.readyAt));
+        });
+        return readyList;
+    }
+}
+
+const doctorAvailabilityService = new DoctorAvailabilityService();

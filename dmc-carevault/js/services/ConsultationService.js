@@ -57,7 +57,7 @@ class ConsultationService {
 
         return "";
     }
-
+    
     saveConsultation(data) {
         permissionService.requirePermission("consultations.write");
 
@@ -68,8 +68,9 @@ class ConsultationService {
 
         const currentUser = authService.getCurrentUser();
         const savedConsultations = storageService.loadList("consultations");
+        const isNewConsultation = data.id === "";
 
-        if (data.id === "") {
+        if (isNewConsultation) {
             data.id = storageService.generateNextId("C", savedConsultations);
             data.doctorUsername = currentUser.username;
             savedConsultations.push(data);
@@ -93,6 +94,14 @@ class ConsultationService {
 
         storageService.saveList("consultations", savedConsultations);
         this.updatePatientLastVisit(data.patientId, data.date);
+
+        // A completed consultation finishes the patient's visit in the queue.
+        let finishedEntry = null;
+        if (data.status === "Completed") {
+            finishedEntry = appointmentService.finishConsultationFromDoctor(data.patientId);
+        }
+
+        return { finishedEntry: finishedEntry, isNewConsultation: isNewConsultation };
     }
 
     // Keeps the patient's "Last Visit" column up to date.
