@@ -32,6 +32,7 @@ class AppointmentsPage {
 
     showPage() {
         let html = "<h2>Queuing</h2>";
+        html += '<div id="nextPatientBar"></div>';
         html += '<div class="toolbar">';
         html += '<input id="searchInput" placeholder="Search patient or reason...">';
         html += '<input id="dateFilter" type="date" title="Clear the date to see all dates" value="' + this.filterDate + '">';
@@ -147,6 +148,38 @@ class AppointmentsPage {
 
         document.getElementById("queueTable").innerHTML =
             tableBuilder.buildTableHtml(columns, this.getFilteredEntries(), "No patients in the queue for this date.");
+        this.refreshNextPatientBar();
+    }
+
+    // Green bar above the table: the patient who is next in line today (lowest queue number still waiting).
+    // It ignores the date and status filters, so it always answers "who is next?".
+    refreshNextPatientBar() {
+        const barElement = document.getElementById("nextPatientBar");
+        if (barElement === null) {
+            return;
+        }
+
+        // Today's list is already in queue order.
+        const todayAppointments = appointmentService.getTodayAppointments();
+        const waitingList = [];
+        for (let i = 0; i < todayAppointments.length; i++) {
+            if (todayAppointments[i].status === "Waiting") {
+                waitingList.push(todayAppointments[i]);
+            }
+        }
+
+        let html = '<div class="ready-bar"><div class="ready-bar-row">';
+        if (waitingList.length === 0) {
+            html += "<span>No patients waiting in the queue.</span>";
+        } else {
+            const nextEntry = waitingList[0];
+            html += "<span>Next patient:</span> <b>#" + htmlHelper.escapeText(nextEntry.queueNumber) + " " +
+                htmlHelper.escapeText(patientService.getPatientNameById(nextEntry.patientId)) + "</b>";
+            html += " <span>" + htmlHelper.escapeText(nextEntry.reason) + "</span>";
+            html += " <small>(" + waitingList.length + " waiting)</small>";
+        }
+        html += "</div></div>";
+        barElement.innerHTML = html;
     }
 
     // Returns { nextStatus, buttonText } for the current status, or null when there is no next step.
@@ -271,17 +304,11 @@ class AppointmentsPage {
             doctorOptions.push({ value: doctors[i].username, label: doctors[i].fullName });
         }
 
-        // An older reason that is not in the list is kept in the drop-down, so editing does not change it.
-        const reasonOptions = formBuilder.createOptionsFromTexts(appointmentService.validReasons);
-        if (isEditing && !appointmentService.validReasons.includes(existingEntry.reason)) {
-            reasonOptions.push({ value: existingEntry.reason, label: existingEntry.reason });
-        }
-
         return [
             { name: "patientId", label: "Patient", type: "searchselect", isRequired: true, isFullWidth: true,
                 options: patientService.getPatientSelectOptions(), placeholder: "Type a name or patient ID to search..." },
             { name: "doctorUsername", label: "Doctor", type: "select", options: doctorOptions },
-            { name: "reason", label: "Reason", type: "select", isRequired: true, isFullWidth: true, options: reasonOptions }
+            { name: "reason", label: "Reason", type: "text", isRequired: true, isFullWidth: true, maxLength: 100 }
         ];
     }
 
@@ -305,6 +332,21 @@ class AppointmentsPage {
         });
         dialog.open();
         formBuilder.connectFields(dialog.getElement(), fields);
+        this.addReasonSuggestions(dialog.getElement());
+    }
+
+    // The reason is typed freely. The services (Check-up, X-ray...) are only suggestions while typing.
+    addReasonSuggestions(dialogElement) {
+        const reasonBox = dialogElement.querySelector("#field_reason");
+        reasonBox.setAttribute("list", "reasonSuggestions");
+        reasonBox.setAttribute("placeholder", "Type the reason, or pick a service");
+
+        let html = '<datalist id="reasonSuggestions">';
+        for (let i = 0; i < appointmentService.validReasons.length; i++) {
+            html += '<option value="' + htmlHelper.escapeText(appointmentService.validReasons[i]) + '"></option>';
+        }
+        html += "</datalist>";
+        reasonBox.insertAdjacentHTML("afterend", html);
     }
 
     saveQueueFromForm(fields, entry) {

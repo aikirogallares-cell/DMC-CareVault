@@ -19,6 +19,7 @@
 class AppointmentService {
     constructor() {
         this.validStatuses = ["Scheduled", "Confirmed", "Waiting", "In Consultation", "Completed", "Cancelled"];
+        // The reason can be typed freely. These services are only the suggestions shown while typing.
         this.validReasons = ["Check-up", "X-ray", "Urine Test", "Blood Test", "Getting Blood", "Getting Urine"];
     }
 
@@ -115,10 +116,9 @@ class AppointmentService {
         error = validator.checkRequired("Reason", data.reason);
         if (error !== "") { return error; }
 
-        // The reason must come from the list. An older reason that is already saved may stay as it is.
-        const isKeptOldReason = existingAppointment !== null && existingAppointment.reason === data.reason;
-        if (!this.validReasons.includes(data.reason) && !isKeptOldReason) {
-            return "Please choose a reason from the list.";
+        // Any reason may be typed (for example "cough and colds"). It only has to fit on the screen.
+        if (String(data.reason).trim().length > 100) {
+            return "Reason is too long (100 characters at most).";
         }
 
         return "";
@@ -153,6 +153,13 @@ class AppointmentService {
             throw new Error("Please choose a patient from the search results.");
         }
 
+        // The same patient cannot be in the queue twice for the same reason on the same day.
+        const duplicateEntry = this.findDuplicateEntry(savedAppointments, data, existing);
+        if (duplicateEntry !== null) {
+            throw new Error(patientService.getPatientNameById(data.patientId) + ' is already in the queue for "' +
+                duplicateEntry.reason + '" (queue number ' + duplicateEntry.queueNumber + ", " + duplicateEntry.status + ").");
+        }
+
         if (existing === null) {
             // New patient in the queue: today only, and the queue number is given right away.
             if (data.date !== dateHelper.getTodayString()) {
@@ -180,6 +187,37 @@ class AppointmentService {
         storageService.saveList("appointments", savedAppointments);
         auditLogService.recordAction("Appointment updated", data.id);
         return existing;
+    }
+
+    // Reasons are compared without capital letters and extra spaces: "X-ray" and " x-ray " are the same.
+    normalizeReason(reason) {
+        return String(reason || "").trim().toLowerCase().replace(/\s+/g, " ");
+    }
+
+    // Looks for another queue entry of the same patient, on the same day, with the same reason.
+    // A cancelled entry does not count, so a cancelled patient can be added again.
+    // existingAppointment is the entry being edited (it is not compared with itself), or null for a new one.
+    findDuplicateEntry(appointmentList, data, existingAppointment) {
+        let date = dateHelper.getTodayString();
+        if (existingAppointment !== null) {
+            date = existingAppointment.date;
+        }
+        const wantedReason = this.normalizeReason(data.reason);
+
+        for (let i = 0; i < appointmentList.length; i++) {
+            const entry = appointmentList[i];
+            if (existingAppointment !== null && entry.id === existingAppointment.id) {
+                continue;
+            }
+
+            const isSamePatient = entry.patientId === data.patientId;
+            const isSameDay = entry.date === date;
+            const isActive = entry.status !== "Cancelled";
+            if (isSamePatient && isSameDay && isActive && this.normalizeReason(entry.reason) === wantedReason) {
+                return entry;
+            }
+        }
+        return null;
     }
 
     // Used by the queue buttons and the Cancel button.

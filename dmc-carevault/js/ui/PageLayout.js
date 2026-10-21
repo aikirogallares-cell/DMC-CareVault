@@ -7,6 +7,8 @@
  *   - Staff and admin: a "Doctor Ready for a Patient" pop-up and a green bar listing the ready doctors.
  *   - Doctor: a pop-up and a yellow bar when a patient is in consultation.
  *   - Staff and admin: a "Consultation Finished" pop-up when a doctor finishes a consultation.
+ *   - Staff and admin: the bell lists every finished consultation that is not paid yet,
+ *     with a button that opens that patient's bill directly in Billing.
  *
  * Usage inside a page:
  *   const layout = new PageLayout("patients");
@@ -15,6 +17,8 @@
 class PageLayout {
     constructor(pageId) {
         this.pageId = pageId;
+        // True for staff and admin: the bell opens a notification list instead of a short message.
+        this.hasBellPanel = false;
     }
 
         show(contentBuilder) {
@@ -27,6 +31,7 @@ class PageLayout {
 
         const settings = settingsService.getSettings();
         const pageInfo = pageRegistry.findPageById(this.pageId);
+        this.hasBellPanel = permissionService.userCan("billing.view");
 
         // 2. Draw the sidebar and header.
         document.getElementById("app").innerHTML = this.buildLayoutHtml(currentUser, settings);
@@ -140,13 +145,142 @@ class PageLayout {
         return appointmentService.countByStatus(todayAppointments, "Waiting");
     }
 
-    buildBellHtml() {
-        const waitingCount = this.getWaitingCount();
-        let badgeHtml = "";
-        if (waitingCount > 0) {
-            badgeHtml = "<em>" + waitingCount + "</em>";
+    // Staff and admin: the bell also counts the finished consultations that are not paid yet.
+    getBellCount() {
+        if (this.hasBellPanel) {
+            const data = this.getBellData();
+            return data.waitingCount + data.awaitingPayment.length;
         }
-        return '<button class="bell" id="bellButton" title="Notifications">🔔' + badgeHtml + "</button>";
+        return this.getWaitingCount();
+    }
+
+    // Reads the saved data directly (not through the services), so the background refresh
+    // does not reset the idle-logout timer.
+    // awaitingPayment: today's visits the doctor finished and that have no paid bill yet, oldest first.
+    getBellData() {
+        const today = dateHelper.getTodayString();
+        const appointments = storageService.loadList("appointments");
+        const bills = storageService.loadList("bills");
+
+        const paidVisitIds = {};
+        for (let i = 0; i < bills.length; i++) {
+            if (bills[i].status === "Paid") {
+                paidVisitIds[bills[i].queueEntryId] = true;
+            }
+        }
+
+        let waitingCount = 0;
+        const awaitingPayment = [];
+        for (let i = 0; i < appointments.length; i++) {
+            const entry = appointments[i];
+            if (entry.date !== today) {
+                continue;
+            }
+            if (entry.status === "Waiting") {
+                waitingCount = waitingCount + 1;
+            }
+            if (entry.doctorFinishedAt && paidVisitIds[entry.id] !== true) {
+                awaitingPayment.push(entry);
+            }
+        }
+
+        awaitingPayment.sort(function (first, second) {
+            return String(first.doctorFinishedAt).localeCompare(String(second.doctorFinishedAt));
+        });
+        return { waitingCount: waitingCount, awaitingPayment: awaitingPayment };
+    }
+
+    buildBellHtml() {
+        const count = this.getBellCount();
+        let badgeHtml = "";
+        if (count > 0) {
+            badgeHtml = "<em>" + count + "</em>";
+        }
+
+        let html = '<div class="bell-wrap" id="bellWrap">';
+        html += '<button class="bell" id="bellButton" title="Notifications">🔔' + badgeHtml + "</button>";
+        html += '<div class="bell-panel" id="bellPanel" hidden></div></div>';
+        return html;
+    }
+
+    // The list under the bell: a finished consultation per row (with a Go to Billing button),
+    // then the number of patients waiting in the queue.
+    buildBellPanelHtml(data) {
+        const safe = htmlHelper.escapeText;
+        let html = '<div class="bell-title">Notifications</div>';
+        let hasItems = false;
+
+        for (let i = 0; i < data.awaitingPayment.length; i++) {
+            const entry = data.awaitingPayment[i];
+            const patientName = patientService.getPatientNameById(entry.patientId);
+            const doctorName = userService.getFullNameByUsername(entry.doctorUsername);
+
+            html += '<div class="bell-item"><div><b>' + safe(patientName) + "</b> is done consulting";
+            html += "<small>" + safe(doctorName) + " finished at " + safe(dateHelper.formatTime(entry.doctorFinishedAt));
+            html += " (" + safe(entry.reason) + ")</small></div>";
+            html += '<a class="btn sm" href="billing.html?visit=' + encodeURIComponent(entry.id) + '">Go to Billing</a></div>';
+            hasItems = true;
+        }
+
+        if (data.waitingCount > 0) {
+            html += '<div class="bell-item"><div><b>' + data.waitingCount + "</b> patient(s) waiting in the queue</div>";
+            html += '<a class="btn sm ghost" href="appointments.html">Queuing</a></div>';
+            hasItems = true;
+        }
+
+        if (hasItems === false) {
+            html += '<div class="empty">No new notifications.</div>';
+        }
+        return html;
+    }
+
+    toggleBellPanel() {
+        const panel = document.getElementById("bellPanel");
+        if (panel === null) {
+            return;
+        }
+
+        if (panel.hidden) {
+            const html = this.buildBellPanelHtml(this.getBellData());
+            panel.innerHTML = html;
+            panel.lastHtml = html;
+            panel.hidden = false;
+        } else {
+            panel.hidden = true;
+        }
+    }
+
+    // Keeps the number on the bell (and the list, when it is open) up to date while the page stays open.
+    refreshBell() {
+        const button = document.getElementById("bellButton");
+        if (button === null || this.hasBellPanel === false) {
+            return;
+        }
+
+        const data = this.getBellData();
+        const count = data.waitingCount + data.awaitingPayment.length;
+        let badge = button.querySelector("em");
+
+        if (count === 0) {
+            if (badge !== null) {
+                badge.remove();
+            }
+        } else {
+            if (badge === null) {
+                badge = document.createElement("em");
+                button.appendChild(badge);
+            }
+            badge.textContent = String(count);
+        }
+
+        const panel = document.getElementById("bellPanel");
+        if (panel !== null && panel.hidden === false) {
+            const newHtml = this.buildBellPanelHtml(data);
+            if (panel.lastHtml !== newHtml) {
+                panel.innerHTML = newHtml;
+                panel.lastHtml = newHtml;
+            }
+        }
     }
 
     buildAccessDeniedHtml(currentUser) {
@@ -165,10 +299,21 @@ class PageLayout {
         });
 
         document.getElementById("bellButton").addEventListener("click", function () {
-            if (waitingCount > 0) {
+            if (layout.hasBellPanel) {
+                layout.toggleBellPanel();
+            } else if (waitingCount > 0) {
                 notifier.showWarning(waitingCount + " patient(s) waiting in the queue.");
             } else {
                 notifier.showSuccess("No new notifications.");
+            }
+        });
+
+        // Clicking anywhere outside the bell closes the notification list.
+        document.addEventListener("click", function (event) {
+            const wrap = document.getElementById("bellWrap");
+            const panel = document.getElementById("bellPanel");
+            if (wrap !== null && panel !== null && !wrap.contains(event.target)) {
+                panel.hidden = true;
             }
         });
 
@@ -278,7 +423,7 @@ class PageLayout {
     }
 
     // The bar at the top of the page lists every patient in consultation today.
-    updateCurrentPatientBar(inConsultation) {
+        updateCurrentPatientBar(inConsultation) {
         let bar = document.getElementById("currentPatientBar");
 
         if (inConsultation.length === 0) {
@@ -295,9 +440,14 @@ class PageLayout {
 
             const layout = this;
             bar.addEventListener("click", function (event) {
-                const button = event.target.closest("button[data-view-patient]");
-                if (button !== null) {
-                    layout.openPatientRecord(button.getAttribute("data-view-patient"));
+                const viewButton = event.target.closest("button[data-view-patient]");
+                if (viewButton !== null) {
+                    layout.openPatientRecord(viewButton.getAttribute("data-view-patient"));
+                    return;
+                }
+                const doneButton = event.target.closest("button[data-done-patient]");
+                if (doneButton !== null) {
+                    layout.doctorFinishesPatient(doneButton.getAttribute("data-done-patient"));
                 }
             });
         }
@@ -310,7 +460,7 @@ class PageLayout {
         }
     }
 
-    buildCurrentPatientBarHtml(inConsultation) {
+        buildCurrentPatientBarHtml(inConsultation) {
         const safe = htmlHelper.escapeText;
         let html = "";
 
@@ -328,6 +478,7 @@ class PageLayout {
                 html += ' <span class="warn-text">Allergy: ' + safe(allergyText) + "</span>";
             }
             html += ' <button class="btn sm" data-view-patient="' + safe(appointment.patientId) + '">View record</button>';
+            html += ' <button class="btn sm ghost" data-done-patient="' + safe(appointment.patientId) + '">Done consulting</button>';
             html += "</div>";
         }
         return html;
@@ -534,15 +685,36 @@ class PageLayout {
 
     // ============ Staff and Admin: a doctor finished a consultation ============
 
-    startDoneAlert(currentUser) {
+        startDoneAlert(currentUser) {
         const layout = this;
-        this.checkDoneAlert(currentUser);
+        this.checkDoneAlertSafely(currentUser);
+
+        // Checks every 2 seconds, and at once when another tab saves the queue (storage event).
         window.setInterval(function () {
-            layout.checkDoneAlert(currentUser);
-        }, 4000);
+            layout.checkDoneAlertSafely(currentUser);
+        }, 2000);
+
+        // "bills" is watched too, so the bell clears when a payment is made in another tab.
+        window.addEventListener("storage", function (event) {
+            const isWatched = event.key === storageService.keyPrefix + "appointments" ||
+                event.key === storageService.keyPrefix + "bills";
+            if (isWatched) {
+                layout.checkDoneAlertSafely(currentUser);
+            }
+        });
+    }
+
+    checkDoneAlertSafely(currentUser) {
+        try {
+            this.checkDoneAlert(currentUser);
+        } catch (error) {
+            console.error("[done-alert] check failed:", error);
+        }
     }
 
     checkDoneAlert(currentUser) {
+        this.refreshBell();
+
         const seenStorageName = "dmcv2_seenDoctorDone_" + currentUser.username;
         const readyFlagName = "dmcv2_doneAlertReady_" + currentUser.username;
         const finishedList = this.getFinishedVisitsToday();
@@ -614,8 +786,8 @@ class PageLayout {
         const doctorName = userService.getFullNameByUsername(entry.doctorUsername);
         const patientName = patientService.getPatientNameById(entry.patientId);
 
-        let bodyHtml = '<p class="popup-lead">' + htmlHelper.escapeText(doctorName) +
-            " has finished the consultation. The bill is ready in Billing.</p>";
+        let bodyHtml = '<p class="popup-lead"><b>' + htmlHelper.escapeText(doctorName) +
+            "</b> is done consulting the patient. The bill is ready in Billing.</p>";
         bodyHtml += this.buildKeyValueHtml([
             ["Patient", patientName + " (" + entry.patientId + ")"],
             ["Service Done", entry.reason],
@@ -636,7 +808,8 @@ class PageLayout {
             dialog.close();
         });
         dialogElement.querySelector("#doneBillingButton").addEventListener("click", function () {
-            window.location.href = "billing.html";
+            // Opens the bill of this visit directly.
+            window.location.href = "billing.html?visit=" + encodeURIComponent(entry.id);
         });
     }
 
@@ -652,7 +825,35 @@ class PageLayout {
             return [];
         }
     }
+        // The doctor presses "Done consulting" on the yellow bar.
+    // The visit is marked finished, the bar clears at once, and staff and admin get the pop-up.
+    doctorFinishesPatient(patientId) {
+        const currentUser = authService.getCurrentUser();
+        if (currentUser === null) {
+            return;
+        }
 
+        const patientName = patientService.getPatientNameById(patientId);
+        const isConfirmed = confirm("Mark " + patientName + " as done consulting?\n\n" +
+            "Staff and admin will be notified, and the bill will be ready in Billing.");
+        if (isConfirmed === false) {
+            return;
+        }
+
+        try {
+            const finishedEntry = appointmentService.finishConsultationFromDoctor(patientId);
+            if (finishedEntry === null) {
+                notifier.showWarning("This patient is no longer in consultation.");
+            } else {
+                notifier.showSuccess("Done consulting. Staff and admin have been notified.");
+            }
+        } catch (error) {
+            notifier.showError(error.message);
+        }
+
+        // Refresh the bar now, so the patient's name disappears at once.
+        this.checkDoctorPatientAlert(currentUser);
+    }
     markKeySeen(storageName, key) {
         const keys = this.loadSeenKeys(storageName);
         keys.push(key);

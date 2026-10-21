@@ -3,7 +3,7 @@
  * Purpose: bills, cash payment, receipts and sales statistics.
  * Bills are made automatically when a visit is completed, and the patient's prescriptions for that day
  * are added as medicine lines. The patient decides which medicines to buy here. The only payment
- * method is cash. After a successful payment a receipt is shown and can be printed.
+ * method is cash. After a successful payment a receipt is shown.
  * Admin sees the sales statistics and sets the service prices.
  */
 class BillingPage {
@@ -74,6 +74,32 @@ class BillingPage {
         this.connectEvents();
         this.refreshStats();
         this.refreshBills();
+        this.openBillFromLink();
+    }
+
+    // The "Go to Billing" button of the notification opens billing.html?visit=A-0004.
+    // This opens the bill of that visit straight away, so staff do not have to look for it.
+    openBillFromLink() {
+        const visitId = new URLSearchParams(window.location.search).get("visit");
+        if (visitId === null) {
+            return;
+        }
+
+        // Remove ?visit=... from the address, so refreshing the page does not open the bill again.
+        try {
+            window.history.replaceState(null, "", window.location.pathname);
+        } catch (error) {
+            // Some browsers do not allow this when the page is opened as a file. The bill still opens.
+        }
+
+        const bills = billingService.getBills("All");
+        for (let i = 0; i < bills.length; i++) {
+            if (bills[i].queueEntryId === visitId) {
+                this.openBillDialog(bills[i].id);
+                return;
+            }
+        }
+        notifier.showWarning("The bill for this visit was not found.");
     }
 
     connectEvents() {
@@ -379,22 +405,31 @@ class BillingPage {
         notifier.showSuccess("Payment recorded. Medicine stock updated.");
         this.refreshStats();
         this.refreshBills();
-        this.showReceipt(paidBill);
+        this.showReceipt(paidBill, true);
     }
 
     // ---------- Receipt ----------
 
-    showReceipt(bill) {
-        const page = this;
-        const bodyHtml = this.buildReceiptHtml(bill) +
-            '<div class="popup-actions"><button class="btn ghost" id="receiptPrintButton">Print Receipt</button></div>';
+    // isJustPaid is true right after a payment. Closing that receipt takes staff to the Queuing page,
+    // so they can see which patient is next. An old receipt opened from the bill list only closes.
+    showReceipt(bill, isJustPaid) {
+        let bodyHtml = this.buildReceiptHtml(bill);
+        if (isJustPaid === true) {
+            bodyHtml += '<div class="popup-actions"><button class="btn" id="receiptQueueButton">Back to Queuing</button></div>';
+        }
 
         const dialog = new ModalDialog("Receipt - " + bill.id, bodyHtml, {});
         dialog.open();
 
-        dialog.getElement().querySelector("#receiptPrintButton").addEventListener("click", function () {
-            page.printReceipt(bill);
-        });
+        if (isJustPaid === true) {
+            const dialogElement = dialog.getElement();
+            const goToQueue = function () {
+                window.location.href = "appointments.html";
+            };
+            dialogElement.querySelector("#receiptQueueButton").addEventListener("click", goToQueue);
+            // The X button does the same, so every payment ends on the Queuing page.
+            dialogElement.querySelector("#dialogCloseButton").addEventListener("click", goToQueue);
+        }
     }
 
     // The receipt lists only what was charged: the service and the medicines bought here.
@@ -445,25 +480,6 @@ class BillingPage {
         html += '<hr class="receipt-rule"><div class="receipt-center"><small>Thank you.</small></div>';
         html += "</div>";
         return html;
-    }
-
-    printReceipt(bill) {
-        const printWindow = window.open("", "_blank");
-        if (printWindow === null) {
-            notifier.showWarning("Please allow pop-ups to print.");
-            return;
-        }
-
-        let html = "<html><head><title>Receipt " + htmlHelper.escapeText(bill.id) + "</title>";
-        html += "<style>body{font-family:Arial;width:300px;margin:20px auto;color:#222;font-size:13px}";
-        html += ".receipt-center{text-align:center}.receipt-rule{border:0;border-top:1px dashed #888;margin:8px 0}";
-        html += ".receipt-line{display:flex;justify-content:space-between;gap:8px;margin:3px 0}";
-        html += ".receipt-item{margin:6px 0}.receipt-total{font-weight:bold;font-size:15px}small{color:#555}</style>";
-        html += "</head><body>" + this.buildReceiptHtml(bill);
-        html += "<script>window.print();<\/script></body></html>";
-
-        printWindow.document.write(html);
-        printWindow.document.close();
     }
 
     // ---------- Service prices (Admin) ----------

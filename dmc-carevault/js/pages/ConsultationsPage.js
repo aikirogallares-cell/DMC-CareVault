@@ -160,7 +160,6 @@ class ConsultationsPage {
         fields.push({ name: "diagnosis", label: "Diagnosis", type: "text", isRequired: true, isFullWidth: true });
         fields.push({ name: "treatment", label: "Treatment", type: "textarea", isFullWidth: true });
         fields.push({ name: "notes", label: "Doctor's Notes", type: "textarea", isFullWidth: true });
-        fields.push({ name: "followUpDate", label: "Follow-up Date", type: "date" });
         return fields;
     }
 
@@ -232,8 +231,7 @@ class ConsultationsPage {
             ["Vital Signs", vitalsText],
             ["Diagnosis", consultation.diagnosis],
             ["Treatment", consultation.treatment],
-            ["Doctor's Notes", consultation.notes],
-            ["Follow-up Date", consultation.followUpDate]
+            ["Doctor's Notes", consultation.notes]
         ];
 
         let html = '<dl class="kv">';

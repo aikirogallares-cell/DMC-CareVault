@@ -36,14 +36,23 @@ class BillingService {
         });
     }
 
+    // A reason that is a service name (for example "X-ray") is priced from the service price list.
+    // Any other typed reason (for example "cough and colds") is charged as a Check-up.
     findServicePrice(serviceName) {
         const fees = this.getServiceFees();
+        const typedName = String(serviceName || "").trim().toLowerCase();
+        let checkUpPrice = 0;
+
         for (let i = 0; i < fees.length; i++) {
-            if (fees[i].name === serviceName) {
+            const feeName = String(fees[i].name).toLowerCase();
+            if (feeName === typedName) {
                 return Number(fees[i].price) || 0;
             }
+            if (feeName === "check-up") {
+                checkUpPrice = Number(fees[i].price) || 0;
+            }
         }
-        return 0;
+        return checkUpPrice;
     }
 
     // newFees: [ { name, price } ]. Only Admin may change prices.

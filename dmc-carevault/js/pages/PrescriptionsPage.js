@@ -99,7 +99,8 @@ class PrescriptionsPage {
         const page = this;
 
         const topFields = [
-            { name: "patientId", label: "Patient", type: "select", options: patientService.getPatientSelectOptions(), isFullWidth: true },
+            { name: "patientId", label: "Patient", type: "searchselect", isRequired: true, isFullWidth: true,
+                options: patientService.getPatientSelectOptions(), placeholder: "Type a name or patient ID to search..." },
             { name: "date", label: "Date", type: "date", isRequired: true, defaultValue: dateHelper.getTodayString() }
         ];
 
@@ -119,6 +120,8 @@ class PrescriptionsPage {
         dialog.open();
 
         const dialogElement = dialog.getElement();
+        // Starts the type-to-search patient box.
+        formBuilder.connectFields(dialogElement, topFields);
         dialogElement.querySelector("#addMedicineButton").addEventListener("click", function () {
             dialogElement.querySelector("#medicineRows").insertAdjacentHTML("beforeend", page.buildMedicineRowHtml());
         });

@@ -223,7 +223,6 @@ class SampleData {
             diagnosis: diagnosis,
             treatment: treatment,
             notes: "",
-            followUpDate: "",
             status: "Completed"
         };
     }
