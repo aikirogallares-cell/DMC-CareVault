@@ -203,8 +203,9 @@ class FormBuilder {
             updateHighlight();
         };
 
-        const chooseOption = function (option) {
+            const chooseOption = function (option) {
             hiddenBox.value = option.value;
+            hiddenBox.dispatchEvent(new Event("change", { bubbles: true }));
             searchBox.value = option.label;
             closeList();
         };
@@ -224,8 +225,9 @@ class FormBuilder {
         });
 
         searchBox.addEventListener("input", function () {
-            // Typing again means the earlier choice no longer applies, so the user must choose again.
-            hiddenBox.value = "";
+        // Typing again means the earlier choice no longer applies, so the user must choose again.
+        hiddenBox.value = "";
+            hiddenBox.dispatchEvent(new Event("change", { bubbles: true }));
             renderList();
         });
 
