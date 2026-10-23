@@ -76,6 +76,7 @@ class PatientsPage {
             { title: "Patient Name", getCellHtml: function (patient) { return htmlHelper.escapeText(htmlHelper.getFullName(patient)); } },
             { title: "Age", getCellHtml: function (patient) { return dateHelper.getAgeText(patient.birthDate); } },
             { title: "Gender", getCellHtml: function (patient) { return patient.gender; } },
+            { title: "Senior / PWD", getCellHtml: function (patient) { return page.buildCategoryBadgesHtml(patient); } },
             { title: "Contact", getCellHtml: function (patient) {
                 if (!patient.contactNumber) {
                     return "-";
@@ -93,6 +94,22 @@ class PatientsPage {
 
         document.getElementById("patientTable").innerHTML =
             tableBuilder.buildTableHtml(columns, patients, "No patient records found.");
+    }
+
+    // Small labels for the patient list: "Senior" and/or "PWD", or "-" when the patient is neither.
+    // Older records have no value saved, so they count as "No".
+    buildCategoryBadgesHtml(patient) {
+        let html = "";
+        if (patient.seniorCitizen === "Yes") {
+            html += htmlHelper.buildStatusBadge("Senior") + " ";
+        }
+        if (patient.pwd === "Yes") {
+            html += htmlHelper.buildStatusBadge("PWD");
+        }
+        if (html === "") {
+            return "-";
+        }
+        return html;
     }
 
     // Only the buttons the current user may use are created.
@@ -150,6 +167,7 @@ class PatientsPage {
         const genderOptions = [{ value: "", label: "Select gender" }].concat(
             formBuilder.createOptionsFromTexts(patientService.validGenders));
         const civilStatusOptions = formBuilder.createOptionsFromTexts(["Single", "Married", "Widowed", "Separated"]);
+        const yesNoOptions = formBuilder.createOptionsFromTexts(["No", "Yes"]);
         const bloodTypeOptions = formBuilder.createOptionsFromTexts(["Unknown", "A+", "A-", "B+", "B-", "AB+", "AB-", "O+", "O-"]);
         const relationshipOptions = [{ value: "", label: "Select relationship" }].concat(
             formBuilder.createOptionsFromTexts(["Parent", "Spouse", "Child", "Sibling", "Grandparent", "Relative", "Guardian", "Friend", "Other"]));
@@ -173,6 +191,9 @@ class PatientsPage {
         fields.push({ name: "birthDate", label: "Date of Birth", type: "date", isRequired: true, max: dateHelper.getTodayString(), validate: validator.checkBirthDate });
         fields.push({ name: "gender", label: "Gender", type: "select", isRequired: true, options: genderOptions });
         fields.push({ name: "civilStatus", label: "Civil Status", type: "select", options: civilStatusOptions });
+        // Staff and admin can change these later (Edit), for example when a patient turns 60 or gets a PWD ID.
+        fields.push({ name: "seniorCitizen", label: "Senior Citizen", type: "select", options: yesNoOptions, defaultValue: "No" });
+        fields.push({ name: "pwd", label: "PWD (Person with Disability)", type: "select", options: yesNoOptions, defaultValue: "No" });
         fields.push({ name: "contactNumber", label: "Contact Number", type: "text", maxLength: 11, digitsOnly: true });
         // The address is typed in three boxes. PatientService joins them into one address line.
         fields.push({ name: "lotNo", label: "Lot No.", type: "text", placeholder: "Example: 12 or Lot 12 Blk 3" });
@@ -330,6 +351,8 @@ class PatientsPage {
         html += this.buildDetailRow("Age", dateHelper.getAgeText(patient.birthDate));
         html += this.buildDetailRow("Gender", patient.gender);
         html += this.buildDetailRow("Civil Status", patient.civilStatus);
+        html += this.buildDetailRow("Senior Citizen", patient.seniorCitizen || "No");
+        html += this.buildDetailRow("PWD", patient.pwd || "No");
         html += this.buildDetailRow("Address", patient.address);
         html += this.buildDetailRow("Contact Number", patient.contactNumber);
         html += this.buildDetailRow("Emergency Contact", patient.emergencyName + " (" + patient.emergencyRelationship + ") " + patient.emergencyContactNumber);

@@ -1,8 +1,10 @@
 /*
  * AppointmentsPage.js
- * Purpose: the Queuing page. This replaces the old Appointments and Patient Queue pages.
- * Staff adds patients to the queue and moves them through the steps.
+ * Purpose: the Queuing page. Staff adds patients to the queue and moves them through the steps.
  * Doctors see their own patients in the queue (view only).
+ *
+ * Priority lane: Emergency, PWD and Senior Citizen patients are served before Regular patients.
+ * The Priority filter shows one priority, the whole priority lane, or everyone.
  *
  * Steps for each patient:
  *   1. Check in            (Scheduled / Confirmed -> Waiting, gets the next queue number)
@@ -16,6 +18,7 @@ class AppointmentsPage {
         this.searchKeyword = "";
         this.filterDate = dateHelper.getTodayString();
         this.filterStatus = "";
+        this.filterPriority = "";
     }
 
     start() {
@@ -32,13 +35,19 @@ class AppointmentsPage {
 
     showPage() {
         let html = "<h2>Queuing</h2>";
-        html += '<div id="nextPatientBar"></div>';
         html += '<div class="toolbar">';
         html += '<input id="searchInput" placeholder="Search patient or reason...">';
         html += '<input id="dateFilter" type="date" title="Clear the date to see all dates" value="' + this.filterDate + '">';
         html += '<select id="statusFilter"><option value="">All statuses</option>';
         for (let i = 0; i < appointmentService.validStatuses.length; i++) {
             html += "<option>" + appointmentService.validStatuses[i] + "</option>";
+        }
+        html += "</select>";
+        html += '<select id="priorityFilter"><option value="">All priorities</option>';
+        html += '<option value="lane">Priority lane (Emergency, PWD, Senior)</option>';
+        const priorities = appointmentService.getPriorityList();
+        for (let i = 0; i < priorities.length; i++) {
+            html += "<option>" + priorities[i] + "</option>";
         }
         html += "</select>";
         html += '<span class="sp"></span>';
@@ -68,6 +77,10 @@ class AppointmentsPage {
             page.filterStatus = event.target.value;
             page.refreshTable();
         });
+        document.getElementById("priorityFilter").addEventListener("change", function (event) {
+            page.filterPriority = event.target.value;
+            page.refreshTable();
+        });
 
         const addButton = document.getElementById("addQueueButton");
         if (addButton !== null) {
@@ -83,7 +96,16 @@ class AppointmentsPage {
 
     // ---------- Table ----------
 
-    // Applies the date, status and search filters.
+    // True when the entry matches the Priority filter.
+    matchesPriorityFilter(entry) {
+        const priority = appointmentService.getPriorityOf(entry);
+        if (this.filterPriority === "lane") {
+            return priority !== "Regular";
+        }
+        return priority === this.filterPriority;
+    }
+
+    // Applies the date, status, priority and search filters.
     getFilteredEntries() {
         const allEntries = appointmentService.getAppointmentsForCurrentUser();
         const result = [];
@@ -97,6 +119,9 @@ class AppointmentsPage {
             if (this.filterStatus !== "" && entry.status !== this.filterStatus) {
                 continue;
             }
+            if (this.filterPriority !== "" && !this.matchesPriorityFilter(entry)) {
+                continue;
+            }
 
             const searchableText = (patientService.getPatientNameById(entry.patientId) + " " +
                 entry.patientId + " " + entry.reason).toLowerCase();
@@ -107,17 +132,20 @@ class AppointmentsPage {
             result.push(entry);
         }
 
-        // One day: queue order (1, 2, 3...). All dates: newest day first.
-        if (this.filterDate !== "") {
-            result.sort(function (first, second) {
-                return appointmentService.compareQueueOrder(first, second);
-            });
-        } else {
-            result.sort(function (first, second) {
-                return appointmentService.compareNewestFirst(first, second);
-            });
-        }
+        // Newest day first. Within one day, the queue line: in consultation, priority lane, then queue number.
+        result.sort(function (first, second) {
+            if (first.date !== second.date) {
+                return second.date.localeCompare(first.date);
+            }
+            return appointmentService.compareQueueLine(first, second);
+        });
         return result;
+    }
+
+    buildPriorityBadgeHtml(entry) {
+        const priority = appointmentService.getPriorityOf(entry);
+        const cssName = "priority-" + priority.toLowerCase().replace(/ /g, "-");
+        return '<span class="badge ' + cssName + '">' + htmlHelper.escapeText(priority) + "</span>";
     }
 
     refreshTable() {
@@ -130,6 +158,7 @@ class AppointmentsPage {
                 }
                 return item.queueNumber;
             } },
+            { title: "Priority", getCellHtml: function (item) { return page.buildPriorityBadgeHtml(item); } },
             { title: "Patient", getCellHtml: function (item) { return htmlHelper.escapeText(patientService.getPatientNameById(item.patientId)); } },
             { title: "Reason", getCellHtml: function (item) { return htmlHelper.escapeText(item.reason); } },
             { title: "Doctor", getCellHtml: function (item) { return htmlHelper.escapeText(userService.getFullNameByUsername(item.doctorUsername)); } },
@@ -148,38 +177,6 @@ class AppointmentsPage {
 
         document.getElementById("queueTable").innerHTML =
             tableBuilder.buildTableHtml(columns, this.getFilteredEntries(), "No patients in the queue for this date.");
-        this.refreshNextPatientBar();
-    }
-
-    // Green bar above the table: the patient who is next in line today (lowest queue number still waiting).
-    // It ignores the date and status filters, so it always answers "who is next?".
-    refreshNextPatientBar() {
-        const barElement = document.getElementById("nextPatientBar");
-        if (barElement === null) {
-            return;
-        }
-
-        // Today's list is already in queue order.
-        const todayAppointments = appointmentService.getTodayAppointments();
-        const waitingList = [];
-        for (let i = 0; i < todayAppointments.length; i++) {
-            if (todayAppointments[i].status === "Waiting") {
-                waitingList.push(todayAppointments[i]);
-            }
-        }
-
-        let html = '<div class="ready-bar"><div class="ready-bar-row">';
-        if (waitingList.length === 0) {
-            html += "<span>No patients waiting in the queue.</span>";
-        } else {
-            const nextEntry = waitingList[0];
-            html += "<span>Next patient:</span> <b>#" + htmlHelper.escapeText(nextEntry.queueNumber) + " " +
-                htmlHelper.escapeText(patientService.getPatientNameById(nextEntry.patientId)) + "</b>";
-            html += " <span>" + htmlHelper.escapeText(nextEntry.reason) + "</span>";
-            html += " <small>(" + waitingList.length + " waiting)</small>";
-        }
-        html += "</div></div>";
-        barElement.innerHTML = html;
     }
 
     // Returns { nextStatus, buttonText } for the current status, or null when there is no next step.
@@ -304,11 +301,19 @@ class AppointmentsPage {
             doctorOptions.push({ value: doctors[i].username, label: doctors[i].fullName });
         }
 
+        // An older reason that is not in the list is kept in the drop-down, so editing does not change it.
+        const reasonOptions = formBuilder.createOptionsFromTexts(appointmentService.validReasons);
+        if (isEditing && !appointmentService.validReasons.includes(existingEntry.reason)) {
+            reasonOptions.push({ value: existingEntry.reason, label: existingEntry.reason });
+        }
+
         return [
             { name: "patientId", label: "Patient", type: "searchselect", isRequired: true, isFullWidth: true,
                 options: patientService.getPatientSelectOptions(), placeholder: "Type a name or patient ID to search..." },
             { name: "doctorUsername", label: "Doctor", type: "select", options: doctorOptions },
-            { name: "reason", label: "Reason", type: "text", isRequired: true, isFullWidth: true, maxLength: 100 }
+            { name: "reason", label: "Reason", type: "select", isRequired: true, isFullWidth: true, options: reasonOptions },
+            { name: "priority", label: "Priority Lane", type: "select", isRequired: true, isFullWidth: true,
+                defaultValue: "Regular", options: formBuilder.createOptionsFromTexts(appointmentService.getPriorityList()) }
         ];
     }
 
@@ -332,21 +337,6 @@ class AppointmentsPage {
         });
         dialog.open();
         formBuilder.connectFields(dialog.getElement(), fields);
-        this.addReasonSuggestions(dialog.getElement());
-    }
-
-    // The reason is typed freely. The services (Check-up, X-ray...) are only suggestions while typing.
-    addReasonSuggestions(dialogElement) {
-        const reasonBox = dialogElement.querySelector("#field_reason");
-        reasonBox.setAttribute("list", "reasonSuggestions");
-        reasonBox.setAttribute("placeholder", "Type the reason, or pick a service");
-
-        let html = '<datalist id="reasonSuggestions">';
-        for (let i = 0; i < appointmentService.validReasons.length; i++) {
-            html += '<option value="' + htmlHelper.escapeText(appointmentService.validReasons[i]) + '"></option>';
-        }
-        html += "</datalist>";
-        reasonBox.insertAdjacentHTML("afterend", html);
     }
 
     saveQueueFromForm(fields, entry) {
@@ -357,9 +347,20 @@ class AppointmentsPage {
             formValues.id = "";
             formValues.date = dateHelper.getTodayString();
             const savedEntry = appointmentService.saveAppointment(formValues);
-            notifier.showSuccess("Patient added to the queue. Queue number " + savedEntry.queueNumber + ".");
+
+            let laneNote = "";
+            if (savedEntry.priority !== "Regular") {
+                laneNote = " Priority lane: " + savedEntry.priority + ".";
+            }
+            notifier.showSuccess("Patient added to the queue. Queue number " + savedEntry.queueNumber + "." + laneNote);
         } else {
-            // Editing changes only the patient, doctor and reason. Status changes use the step buttons.
+            // A finished visit keeps its priority lane.
+            const isFinished = entry.status === "Completed" || entry.status === "Cancelled";
+            if (isFinished && formValues.priority !== appointmentService.getPriorityOf(entry)) {
+                throw new Error("The priority lane can't be changed after the visit is finished.");
+            }
+
+            // Editing changes the patient, doctor, reason and priority. Status changes use the step buttons.
             formValues.id = entry.id;
             formValues.date = entry.date;
             appointmentService.saveAppointment(formValues);

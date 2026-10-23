@@ -6,6 +6,7 @@
 class PatientService {
     constructor() {
         this.validGenders = ["Male", "Female"];
+        this.yesNoValues = ["Yes", "No"];
     }
 
     // The address is typed in three boxes (lot no., barangay, city).
@@ -126,6 +127,14 @@ class PatientService {
             return "Gender must be Male or Female.";
         }
 
+        // Senior citizen and PWD are Yes or No. Older records do not have them, so they are optional here.
+        if (data.seniorCitizen !== undefined && !this.yesNoValues.includes(data.seniorCitizen)) {
+            return "Senior citizen must be Yes or No.";
+        }
+        if (data.pwd !== undefined && !this.yesNoValues.includes(data.pwd)) {
+            return "PWD must be Yes or No.";
+        }
+
         // Contact number and address are optional (not every patient has them),
         // but a contact number that is typed must still be a valid number (11 digits, starts with 09).
         if (data.contactNumber !== undefined && data.contactNumber !== "") {
@@ -170,6 +179,10 @@ class PatientService {
         data.dateRegistered = dateHelper.getTodayString();
         data.lastVisit = "";
         data.isArchived = false;
+
+        // A new patient is not senior or PWD unless staff chose Yes.
+        if (data.seniorCitizen === undefined) { data.seniorCitizen = "No"; }
+        if (data.pwd === undefined) { data.pwd = "No"; }
 
         // Sensitive fields default to "None" when the registering user cannot enter them.
         if (data.medicalConditions === undefined) { data.medicalConditions = "None"; }

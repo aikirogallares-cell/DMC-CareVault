@@ -7,6 +7,9 @@
 class ConsultationsPage {
     constructor() {
         this.mainElement = null;
+        this.searchKeyword = "";
+        this.filterDate = "";
+        this.filterStatus = "";
     }
 
     start() {
@@ -23,7 +26,11 @@ class ConsultationsPage {
         const canWrite = permissionService.userCan("consultations.write");
 
         let html = "<h2>Consultations</h2>";
-        html += '<div class="toolbar"><span class="sp"></span>';
+        html += '<div class="toolbar">';
+        html += '<input id="searchInput" placeholder="Search patient, complaint or diagnosis...">';
+        html += '<input id="dateFilter" type="date" title="Show only this date. Clear it to see all dates.">';
+        html += '<select id="statusFilter"><option value="">All statuses</option><option>In Progress</option><option>Completed</option></select>';
+        html += '<span class="sp"></span>';
         if (canWrite) {
             html += '<button class="btn" id="addConsultationButton">+ New Consultation</button>';
         }
@@ -40,6 +47,18 @@ class ConsultationsPage {
         document.getElementById("consultationTable").addEventListener("click", function (event) {
             page.handleTableButtonClick(event);
         });
+        document.getElementById("searchInput").addEventListener("input", function (event) {
+            page.searchKeyword = event.target.value.toLowerCase().trim();
+            page.refreshTable();
+        });
+        document.getElementById("dateFilter").addEventListener("change", function (event) {
+            page.filterDate = event.target.value;
+            page.refreshTable();
+        });
+        document.getElementById("statusFilter").addEventListener("change", function (event) {
+            page.filterStatus = event.target.value;
+            page.refreshTable();
+        });
 
         this.refreshTable();
 
@@ -49,13 +68,40 @@ class ConsultationsPage {
         }
     }
 
-    refreshTable() {
-        const page = this;
-        const consultations = consultationService.getConsultationsForCurrentUser();
+    // Applies the search, date and status filters. Newest first.
+    getFilteredConsultations() {
+        const allConsultations = consultationService.getConsultationsForCurrentUser();
+        const result = [];
 
-        consultations.sort(function (first, second) {
+        for (let i = 0; i < allConsultations.length; i++) {
+            const item = allConsultations[i];
+
+            if (this.filterDate !== "" && item.date !== this.filterDate) {
+                continue;
+            }
+            if (this.filterStatus !== "" && item.status !== this.filterStatus) {
+                continue;
+            }
+
+            const searchableText = (item.id + " " + item.patientId + " " + patientService.getPatientNameById(item.patientId) + " " +
+                item.complaint + " " + item.diagnosis).toLowerCase();
+            if (this.searchKeyword !== "" && !searchableText.includes(this.searchKeyword)) {
+                continue;
+            }
+
+            result.push(item);
+        }
+
+        result.sort(function (first, second) {
             return second.date.localeCompare(first.date);
         });
+        return result;
+    }
+
+    refreshTable() {
+        const page = this;
+        const consultations = this.getFilteredConsultations();
+        const isFiltering = this.searchKeyword !== "" || this.filterDate !== "" || this.filterStatus !== "";
 
         const columns = [
             { title: "Date", getCellHtml: function (item) { return item.date; } },
@@ -67,7 +113,7 @@ class ConsultationsPage {
         ];
 
         document.getElementById("consultationTable").innerHTML =
-            tableBuilder.buildTableHtml(columns, consultations, "No consultations yet.");
+            tableBuilder.buildTableHtml(columns, consultations, isFiltering ? "No consultations match your search." : "No consultations yet.");
     }
 
     buildActionButtons(consultation) {

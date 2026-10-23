@@ -24,6 +24,11 @@ class BillingService {
         ];
     }
 
+    // Two decimals with thousands commas, without the peso sign: 300.00, 1,250.50
+    formatMoney(value) {
+        return Number(value || 0).toLocaleString("en-PH", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    }
+
     // ----- Service prices -----
 
     getServiceFees() {
@@ -383,7 +388,7 @@ class BillingService {
         }
         const cash = Number(cashReceived);
         if (cash < total) {
-            throw new Error("Cash received (₱" + cash + ") is less than the total (₱" + total + ").");
+            throw new Error("Cash received (₱" + this.formatMoney(cash) + ") is less than the total (₱" + this.formatMoney(total) + ").");
         }
 
         // The same medicine can be on two lines, so check the total needed for each one.

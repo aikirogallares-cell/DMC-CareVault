@@ -23,8 +23,9 @@ class BillingPage {
         });
     }
 
+    // Money always shows two decimals: ₱300.00, ₱1,250.50
     formatPeso(value) {
-        return "₱" + Number(value || 0).toLocaleString("en-PH");
+        return "₱" + billingService.formatMoney(value);
     }
 
     // Shows "-" for a value that was not recorded (for example, bills paid before cash was tracked).
@@ -405,31 +406,14 @@ class BillingPage {
         notifier.showSuccess("Payment recorded. Medicine stock updated.");
         this.refreshStats();
         this.refreshBills();
-        this.showReceipt(paidBill, true);
+        this.showReceipt(paidBill);
     }
 
     // ---------- Receipt ----------
 
-    // isJustPaid is true right after a payment. Closing that receipt takes staff to the Queuing page,
-    // so they can see which patient is next. An old receipt opened from the bill list only closes.
-    showReceipt(bill, isJustPaid) {
-        let bodyHtml = this.buildReceiptHtml(bill);
-        if (isJustPaid === true) {
-            bodyHtml += '<div class="popup-actions"><button class="btn" id="receiptQueueButton">Back to Queuing</button></div>';
-        }
-
-        const dialog = new ModalDialog("Receipt - " + bill.id, bodyHtml, {});
-        dialog.open();
-
-        if (isJustPaid === true) {
-            const dialogElement = dialog.getElement();
-            const goToQueue = function () {
-                window.location.href = "appointments.html";
-            };
-            dialogElement.querySelector("#receiptQueueButton").addEventListener("click", goToQueue);
-            // The X button does the same, so every payment ends on the Queuing page.
-            dialogElement.querySelector("#dialogCloseButton").addEventListener("click", goToQueue);
-        }
+    // Shows the receipt. After a payment staff stay on the Billing page when they close it.
+    showReceipt(bill) {
+        new ModalDialog("Receipt - " + bill.id, this.buildReceiptHtml(bill), {}).open();
     }
 
     // The receipt lists only what was charged: the service and the medicines bought here.
