@@ -116,3 +116,13 @@ th{font-size:12px;color:var(--tx2);background:var(--bg)}td .btn{margin-right:4px
 .badge.priority-pwd{background:#e3f2fd;color:#1565c0}
 .badge.priority-senior-citizen{background:#f3e5f5;color:#6a1b9a}
 .badge.priority-regular{background:#eef2f7;color:#445}
+
+/* Senior Citizen and PWD discount on bills */
+.bill-totals{margin-top:12px;text-align:right}
+.bill-totals div{margin:2px 0}
+.discount-box{margin-top:16px;border:1px solid var(--bd);border-radius:8px;padding:12px 14px;background:#fafcfa}
+.discount-box h4{margin:0 0 10px;color:var(--g)}
+.discount-row{margin-bottom:10px;max-width:360px}
+.discount-check{display:flex;align-items:center;gap:8px;font-size:13px;color:var(--tx)}
+.discount-check input{width:auto}
+.discount-note{display:block;margin-top:8px;color:var(--tx2)}

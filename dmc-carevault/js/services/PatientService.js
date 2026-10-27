@@ -145,12 +145,15 @@ class PatientService {
         return "";
     }
 
+    
     // data.id empty -> register a new patient. data.id filled -> update that patient.
     savePatient(data) {
         const validationError = this.validatePatientData(data);
         if (validationError !== "") {
             throw new Error(validationError);
         }
+
+        this.normalizePwdFields(data);
 
         // Keep one readable "address" line, built from the three address boxes.
         if (data.lotNo !== undefined || data.barangay !== undefined || data.city !== undefined) {
@@ -229,7 +232,58 @@ class PatientService {
     }
 
 
-   
+       // ----- Age, Senior Citizen and PWD -----
+
+    // Age in whole years, counted from the birth date. Returns null when there is no birth date.
+    getAgeYears(birthDateString) {
+        if (!birthDateString) {
+            return null;
+        }
+        const parts = birthDateString.split("-");
+        const birth = new Date(parseInt(parts[0], 10), parseInt(parts[1], 10) - 1, parseInt(parts[2], 10));
+        const now = new Date();
+
+        let years = now.getFullYear() - birth.getFullYear();
+        const hadBirthdayThisYear = now.getMonth() > birth.getMonth() ||
+            (now.getMonth() === birth.getMonth() && now.getDate() >= birth.getDate());
+        if (!hadBirthdayThisYear) {
+            years = years - 1;
+        }
+        return years;
+    }
+
+    // Senior Citizen: 60 years old or above. This is worked out from the birth date each time,
+    // so a patient becomes a Senior Citizen on their 60th birthday without anyone changing a field.
+    isSeniorCitizen(patient) {
+        const age = this.getAgeYears(patient.birthDate);
+        return age !== null && age >= 60;
+    }
+
+    isPwd(patient) {
+        return patient.isPwd === true;
+    }
+
+    // The category shown on the list and used as the default priority lane.
+    // A patient who is both a PWD and a Senior Citizen is in the PWD category, because the PWD lane comes first.
+    getPatientCategory(patient) {
+        if (this.isPwd(patient)) {
+            return "PWD";
+        }
+        if (this.isSeniorCitizen(patient)) {
+            return "Senior Citizen";
+        }
+        return "Regular";
+    }
+
+    // Turns the form value ("Yes" or "No") into true or false, and cleans up the PWD ID number.
+    normalizePwdFields(data) {
+        data.isPwd = data.isPwd === true || data.isPwd === "Yes";
+        data.pwdId = String(data.pwdId || "").trim();
+        if (data.isPwd === false) {
+            data.pwdId = "";
+        }
+    }
+
     getPatientSelectOptions() {
         const patients = this.getActivePatients();
         const options = [];

@@ -630,7 +630,10 @@ class PageLayout {
             ["Civil Status", patient.civilStatus],
             ["Blood Type", patient.bloodType],
             ["Registered", patient.dateRegistered],
-            ["Last Visit", patient.lastVisit]
+            ["Last Visit", patient.lastVisit],
+            ["Category", patientService.getPatientCategory(patient)],
+            ["Senior Citizen", patientService.isSeniorCitizen(patient) ? "Yes (age " + patientService.getAgeYears(patient.birthDate) + ")" : "No"],
+            ["Person with Disability", patientService.isPwd(patient) ? "Yes" + (patient.pwdId ? " (ID " + patient.pwdId + ")" : "") : "No"]
         ]);
         html += "</div>";
 

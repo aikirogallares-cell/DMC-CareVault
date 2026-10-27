@@ -1,5 +1,4 @@
 /*
- * AppointmentsPage.js
  * Purpose: the Queuing page. Staff adds patients to the queue and moves them through the steps.
  * Doctors see their own patients in the queue (view only).
  *
@@ -317,7 +316,7 @@ class AppointmentsPage {
         ];
     }
 
-    // entry is null when adding a new patient to the queue.
+        // entry is null when adding a new patient to the queue.
     openQueueForm(entry) {
         const page = this;
         const isEditing = entry !== null;
@@ -337,6 +336,20 @@ class AppointmentsPage {
         });
         dialog.open();
         formBuilder.connectFields(dialog.getElement(), fields);
+
+        // Adding a patient: the Priority Lane follows the patient (PWD, Senior Citizen or Regular).
+        if (isEditing === false) {
+            dialog.getElement().addEventListener("change", function (event) {
+                if (event.target.id !== "field_patientId") {
+                    return;
+                }
+                const patient = patientService.getPatientById(event.target.value);
+                if (patient === null) {
+                    return;
+                }
+                dialog.getElement().querySelector("#field_priority").value = patientService.getPatientCategory(patient);
+            });
+        }
     }
 
     saveQueueFromForm(fields, entry) {

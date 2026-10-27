@@ -248,24 +248,47 @@ class BillingService {
         return Object.assign(result, { sellable: true, note: "" });
     }
 
-    // ----- Totals -----
+        // ----- Totals and discount -----
 
-    // Services are always included. Medicines count only when the patient buys them here.
-    calculateTotal(items) {
-        let total = 0;
+    // 20% for Senior Citizens (RA 9994) and persons with disability (RA 7277, as amended).
+    getDiscountRate() {
+        return 0.2;
+    }
+
+    getDiscountTypes() {
+        return ["None", "Senior Citizen", "PWD"];
+    }
+
+    // Services plus medicines bought here, before any discount.
+    calculateSubtotal(items) {
+        let subtotal = 0;
         for (let i = 0; i < items.length; i++) {
             if (items[i].type === "service" || items[i].decision === "Buy here") {
-                total = total + (Number(items[i].amount) || 0);
+                subtotal = subtotal + (Number(items[i].amount) || 0);
             }
         }
-        return total;
+        return subtotal;
+    }
+
+    // The discount in whole pesos, rounded to the nearest peso.
+    calculateDiscountAmount(subtotal, discountType) {
+        if (discountType !== "Senior Citizen" && discountType !== "PWD") {
+            return 0;
+        }
+        return Math.round(subtotal * this.getDiscountRate());
+    }
+
+    // The total the patient pays: the subtotal minus the discount.
+    calculateTotal(items, discountType) {
+        const subtotal = this.calculateSubtotal(items);
+        return subtotal - this.calculateDiscountAmount(subtotal, discountType);
     }
 
     getBillTotal(bill) {
         if (bill.status === "Paid") {
             return bill.total;
         }
-        return this.calculateTotal(bill.items);
+        return this.calculateTotal(bill.items, bill.discountType);
     }
 
     // ----- Reading bills -----
@@ -339,10 +362,63 @@ class BillingService {
         storageService.saveList("bills", bills);
         auditLogService.recordAction("Bill choices saved", bill.id);
     }
+    // Records the Senior Citizen or PWD discount on an open bill.
+    // The patient must show an ID, staff must type its number and tick the box to confirm it,
+    // and the patient's record must match the discount.
+    saveDiscount(billId, discountType, idNumber, idWasChecked) {
+        permissionService.requirePermission("billing.collect");
 
-    // Takes the bought medicines out of stock and marks the bill as paid.
-        // Cash only. Takes the bought medicines out of stock and marks the bill as paid.
-    // cashReceived is what the patient handed over. It must cover the total.
+        const bills = storageService.loadList("bills");
+        const bill = this.findBillInList(bills, billId);
+        if (bill === null) {
+            throw new Error("Bill not found.");
+        }
+        if (bill.status !== "Open") {
+            throw new Error("This bill is already paid.");
+        }
+        if (this.getDiscountTypes().includes(discountType) === false) {
+            throw new Error("Choose a discount type from the list.");
+        }
+
+        if (discountType === "None") {
+            bill.discountType = "None";
+            bill.discountIdNumber = "";
+            bill.discountAmount = 0;
+            storageService.saveList("bills", bills);
+            return;
+        }
+
+        const cleanIdNumber = String(idNumber || "").trim();
+        if (cleanIdNumber === "") {
+            throw new Error("Enter the ID number the patient showed.");
+        }
+        if (idWasChecked !== true) {
+            throw new Error("Check the patient's ID first, then tick the box to confirm it.");
+        }
+
+        // The patient's record must match the discount.
+        const patient = patientService.getPatientById(bill.patientId);
+        if (patient === null) {
+            throw new Error("Patient record not found.");
+        }
+        if (discountType === "Senior Citizen" && patientService.isSeniorCitizen(patient) === false) {
+            throw new Error("This patient is not 60 years old or above, so the Senior Citizen discount cannot be given.");
+        }
+        if (discountType === "PWD" && patientService.isPwd(patient) === false) {
+            throw new Error("This patient is not marked as PWD on their record. Edit the patient record first.");
+        }
+
+        const subtotal = this.calculateSubtotal(bill.items);
+        bill.discountType = discountType;
+        bill.discountIdNumber = cleanIdNumber;
+        bill.discountAmount = this.calculateDiscountAmount(subtotal, discountType);
+        storageService.saveList("bills", bills);
+        auditLogService.recordAction("Discount set", bill.id + " " + discountType + " (ID " + cleanIdNumber + ")");
+    }
+
+
+    // Cash only. Takes the bought medicines out of stock and marks the bill as paid.
+    // The discount must already be saved with saveDiscount().
     // Returns the paid bill so the receipt can be shown.
     markPaid(billId, cashReceived) {
         permissionService.requirePermission("billing.collect");
@@ -354,6 +430,11 @@ class BillingService {
         }
         if (bill.status !== "Open") {
             throw new Error("This bill is already paid.");
+        }
+
+        const discountType = bill.discountType || "None";
+        if (discountType !== "None" && !bill.discountIdNumber) {
+            throw new Error("Record the ID number for the " + discountType + " discount first.");
         }
 
         const medications = storageService.loadList("medications");
@@ -380,15 +461,19 @@ class BillingService {
             quantityNeeded[resolved.medicationId] = (quantityNeeded[resolved.medicationId] || 0) + item.quantity;
         }
 
+        // Subtotal, discount and total.
+        const subtotal = this.calculateSubtotal(bill.items);
+        const discountAmount = this.calculateDiscountAmount(subtotal, discountType);
+        const total = subtotal - discountAmount;
+
         // Cash check: the cash must cover the total before anything is changed.
-        const total = this.calculateTotal(bill.items);
         const cashError = validator.checkWholeNumber("Cash received", cashReceived);
         if (cashError !== "") {
             throw new Error(cashError);
         }
         const cash = Number(cashReceived);
         if (cash < total) {
-            throw new Error("Cash received (₱" + this.formatMoney(cash) + ") is less than the total (₱" + this.formatMoney(total) + ").");
+            throw new Error("Cash received (₱" + cash + ") is less than the total (₱" + total + ").");
         }
 
         // The same medicine can be on two lines, so check the total needed for each one.
@@ -408,6 +493,9 @@ class BillingService {
         }
         storageService.saveList("medications", medications);
 
+        bill.subtotal = subtotal;
+        bill.discountType = discountType;
+        bill.discountAmount = discountAmount;
         bill.total = total;
         bill.status = "Paid";
         bill.paymentMethod = "Cash";
@@ -418,7 +506,8 @@ class BillingService {
         bill.paidBy = authService.getCurrentUser().username;
         storageService.saveList("bills", bills);
 
-        auditLogService.recordAction("Bill paid (cash)", bill.id + " total " + total);
+        auditLogService.recordAction("Bill paid (cash)", bill.id + " total " + total +
+            (discountAmount > 0 ? " (discount " + discountAmount + ")" : ""));
         return bill;
     }
 
