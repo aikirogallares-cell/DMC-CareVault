@@ -1,3 +1,4 @@
+
 class FormBuilder {
     buildFormHtml(fieldList, existingValues) {
         let html = '<div class="fgrid">';
@@ -202,12 +203,11 @@ class FormBuilder {
             updateHighlight();
         };
 
-        const chooseOption = function (option) {
+            const chooseOption = function (option) {
             hiddenBox.value = option.value;
+            hiddenBox.dispatchEvent(new Event("change", { bubbles: true }));
             searchBox.value = option.label;
             closeList();
-            // Lets a page react to the choice (for example the Medical History page).
-            hiddenBox.dispatchEvent(new Event("change", { bubbles: true }));
         };
 
         const moveHighlight = function (step) {
@@ -225,12 +225,9 @@ class FormBuilder {
         });
 
         searchBox.addEventListener("input", function () {
-            // Typing again means the earlier choice no longer applies, so the user must choose again.
-            const hadChoice = hiddenBox.value !== "";
-            hiddenBox.value = "";
-            if (hadChoice) {
-                hiddenBox.dispatchEvent(new Event("change", { bubbles: true }));
-            }
+        // Typing again means the earlier choice no longer applies, so the user must choose again.
+        hiddenBox.value = "";
+            hiddenBox.dispatchEvent(new Event("change", { bubbles: true }));
             renderList();
         });
 

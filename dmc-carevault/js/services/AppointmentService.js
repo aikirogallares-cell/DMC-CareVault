@@ -67,7 +67,7 @@ class AppointmentService {
         return ownAppointments;
     }
 
-        getTodayAppointments() {
+    getTodayAppointments() {
         const allAppointments = this.getAppointmentsForCurrentUser();
         const today = dateHelper.getTodayString();
         const todayList = [];
@@ -78,10 +78,10 @@ class AppointmentService {
             }
         }
 
-        // Same order as the Queuing screen: in consultation, then priority lane, then queue number.
+        // Queue order: queue number 1 first.
         const service = this;
         todayList.sort(function (first, second) {
-            return service.compareQueueLine(first, second);
+            return service.compareQueueOrder(first, second);
         });
         return todayList;
     }
@@ -126,9 +126,6 @@ class AppointmentService {
 
     // data.id empty -> create. data.id filled -> update.
     // Returns the saved appointment (a new one already has its queue number).
-        // data.id empty -> create. data.id filled -> update.
-    // data.priority is Emergency, PWD, Senior Citizen or Regular. Blank means Regular.
-    // Returns the saved appointment (a new one already has its queue number).
     saveAppointment(data) {
         permissionService.requirePermission("appointments.manage");
 
@@ -151,17 +148,16 @@ class AppointmentService {
             throw new Error(validationError);
         }
 
-        // Priority lane: blank means Regular. Anything else must be on the list.
-        if (data.priority === undefined || data.priority === "") {
-            data.priority = "Regular";
-        }
-        if (!this.getPriorityList().includes(data.priority)) {
-            throw new Error("Please choose a priority lane from the list.");
-        }
-
         const patient = patientService.getPatientById(data.patientId);
         if (patient === null || patient.isArchived) {
             throw new Error("Please choose a patient from the search results.");
+        }
+
+        // The same patient cannot be in the queue twice for the same reason on the same day.
+        const duplicateEntry = this.findDuplicateEntry(savedAppointments, data, existing);
+        if (duplicateEntry !== null) {
+            throw new Error(patientService.getPatientNameById(data.patientId) + ' is already in the queue for "' +
+                duplicateEntry.reason + '" (queue number ' + duplicateEntry.queueNumber + ", " + duplicateEntry.status + ").");
         }
 
         if (existing === null) {
@@ -180,7 +176,7 @@ class AppointmentService {
             delete data.time;
             savedAppointments.push(data);
             storageService.saveList("appointments", savedAppointments);
-            auditLogService.recordAction("Appointment created", data.id + " (queue " + data.queueNumber + ", " + data.priority + ")");
+            auditLogService.recordAction("Appointment created", data.id + " (queue " + data.queueNumber + ")");
             return data;
         }
 
@@ -188,13 +184,6 @@ class AppointmentService {
         existing.patientId = data.patientId;
         existing.doctorUsername = data.doctorUsername;
         existing.reason = data.reason;
-
-        // The priority lane can be changed only while the patient has not finished.
-        const isFinished = existing.status === "Completed" || existing.status === "Cancelled";
-        if (!isFinished) {
-            existing.priority = data.priority;
-        }
-
         storageService.saveList("appointments", savedAppointments);
         auditLogService.recordAction("Appointment updated", data.id);
         return existing;
@@ -387,54 +376,6 @@ class AppointmentService {
         }
         return null;
     }
-        // ----- Priority lane -----
-
-    // The order patients are served in: Emergency first, then PWD, then Senior Citizen, then Regular.
-    getPriorityList() {
-        return ["Emergency", "PWD", "Senior Citizen", "Regular"];
-    }
-
-    // Older records saved before the priority lane existed count as Regular.
-    getPriorityOf(entry) {
-        if (entry.priority && this.getPriorityList().includes(entry.priority)) {
-            return entry.priority;
-        }
-        return "Regular";
-    }
-
-    // 0 = Emergency ... 3 = Regular. Lower numbers are served first.
-    getPriorityRank(entry) {
-        return this.getPriorityList().indexOf(this.getPriorityOf(entry));
-    }
-
-    // 0 = in consultation, 1 = still waiting, 2 = finished or cancelled.
-    getLineGroup(entry) {
-        if (entry.status === "In Consultation") {
-            return 0;
-        }
-        if (entry.status === "Completed" || entry.status === "Cancelled") {
-            return 2;
-        }
-        return 1;
-    }
-
-    // The order of the queue within one day:
-    // 1. the patient in consultation, 2. waiting patients by priority, then queue number,
-    // 3. finished and cancelled entries by queue number.
-    compareQueueLine(first, second) {
-        const groupOrder = this.getLineGroup(first) - this.getLineGroup(second);
-        if (groupOrder !== 0) {
-            return groupOrder;
-        }
-        if (this.getLineGroup(first) === 1) {
-            const priorityOrder = this.getPriorityRank(first) - this.getPriorityRank(second);
-            if (priorityOrder !== 0) {
-                return priorityOrder;
-            }
-        }
-        return this.compareQueueOrder(first, second);
-    }
-
     getNextQueueNumber(appointmentList, date) {
         let highestNumber = 0;
         for (let i = 0; i < appointmentList.length; i++) {

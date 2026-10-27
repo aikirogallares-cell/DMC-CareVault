@@ -1,6 +1,7 @@
 /*
  * MedicalHistoryPage.js
- * Purpose: shows the medical history (all consultations) of one selected patient, newest first.
+ * Purpose: shows the medical history (all consultations) of one patient, newest first.
+ * The patient is chosen with a search box: type a name or ID and pick from the matches.
  */
 class MedicalHistoryPage {
     constructor() {
@@ -17,39 +18,45 @@ class MedicalHistoryPage {
         });
     }
 
-    // The patient is found by typing a name or patient ID (no long drop-down list).
-    buildPatientField() {
-        return {
-            name: "patientId", label: "Patient", type: "searchselect", isFullWidth: true,
-            options: patientService.getPatientSelectOptions(), placeholder: "Type a name or patient ID to search..."
-        };
-    }
-
     showPage() {
-        const page = this;
-        const field = this.buildPatientField();
-        // Other pages can link here with ?patient=P-0001 to show that patient straight away.
+        // A patient can be opened directly from another page, for example ?patient=P-0001.
         const preselectedPatientId = new URLSearchParams(window.location.search).get("patient") || "";
 
+        const searchFields = [
+            {
+                name: "patientId",
+                label: "Search patient",
+                type: "searchselect",
+                isFullWidth: true,
+                options: patientService.getPatientSelectOptions(),
+                placeholder: "Type a patient name or ID to search..."
+            }
+        ];
+
         let html = "<h2>Medical History</h2>";
-        html += '<div style="max-width:520px;margin-bottom:14px">' +
-            formBuilder.buildFormHtml([field], { patientId: preselectedPatientId }) + "</div>";
+        html += '<div class="card">' + formBuilder.buildFormHtml(searchFields, { patientId: preselectedPatientId }) + "</div>";
         html += '<div class="card" id="historyTable"></div>';
         this.mainElement.innerHTML = html;
 
-        formBuilder.connectFields(this.mainElement, [field]);
-        document.getElementById("field_patientId").addEventListener("change", function () {
-            page.refreshTable();
+        // Turns on the search box. Choosing a patient fires a "change" event on the hidden box.
+        formBuilder.connectFields(this.mainElement, searchFields);
+
+        const page = this;
+        this.mainElement.addEventListener("change", function (event) {
+            if (event.target.id === "field_patientId") {
+                page.refreshTable();
+            }
         });
+
         this.refreshTable();
     }
 
     refreshTable() {
         const selectedPatientId = document.getElementById("field_patientId").value;
+        const tableElement = document.getElementById("historyTable");
 
         if (selectedPatientId === "") {
-            document.getElementById("historyTable").innerHTML =
-                '<div class="empty">Search and choose a patient to see the medical history.</div>';
+            tableElement.innerHTML = '<div class="empty">Search for a patient above and choose them to see their medical history.</div>';
             return;
         }
 
@@ -63,7 +70,8 @@ class MedicalHistoryPage {
             { title: "Notes", getCellHtml: function (item) { return htmlHelper.escapeText(item.notes); } }
         ];
 
-        document.getElementById("historyTable").innerHTML =
+        const patientName = patientService.getPatientNameById(selectedPatientId);
+        tableElement.innerHTML = '<h3>' + htmlHelper.escapeText(patientName) + " (" + htmlHelper.escapeText(selectedPatientId) + ")</h3>" +
             tableBuilder.buildTableHtml(columns, history, "No medical history for this patient.");
     }
 }

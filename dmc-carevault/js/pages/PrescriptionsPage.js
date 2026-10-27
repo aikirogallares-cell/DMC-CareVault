@@ -8,8 +8,6 @@
 class PrescriptionsPage {
     constructor() {
         this.mainElement = null;
-        this.searchKeyword = "";
-        this.filterDate = "";
     }
 
     start() {
@@ -26,10 +24,7 @@ class PrescriptionsPage {
         const canWrite = permissionService.userCan("prescriptions.write");
 
         let html = "<h2>Prescriptions</h2>";
-        html += '<div class="toolbar">';
-        html += '<input id="searchInput" placeholder="Search patient, doctor or medicine...">';
-        html += '<input id="dateFilter" type="date" title="Show only this date. Clear it to see all dates.">';
-        html += '<span class="sp"></span>';
+        html += '<div class="toolbar"><span class="sp"></span>';
         if (canWrite) {
             html += '<button class="btn" id="addPrescriptionButton">+ New Prescription</button>';
         }
@@ -46,48 +41,12 @@ class PrescriptionsPage {
         document.getElementById("prescriptionTable").addEventListener("click", function (event) {
             page.handleTableButtonClick(event);
         });
-        document.getElementById("searchInput").addEventListener("input", function (event) {
-            page.searchKeyword = event.target.value.toLowerCase().trim();
-            page.refreshTable();
-        });
-        document.getElementById("dateFilter").addEventListener("change", function (event) {
-            page.filterDate = event.target.value;
-            page.refreshTable();
-        });
 
         this.refreshTable();
     }
 
-    // Applies the search and date filters. The service already returns the newest first.
-    getFilteredPrescriptions() {
-        const allPrescriptions = prescriptionService.getAllPrescriptions();
-        const result = [];
-
-        for (let i = 0; i < allPrescriptions.length; i++) {
-            const item = allPrescriptions[i];
-
-            if (this.filterDate !== "" && item.date !== this.filterDate) {
-                continue;
-            }
-
-            const medicineNames = [];
-            for (let j = 0; j < item.medicines.length; j++) {
-                medicineNames.push(item.medicines[j].name);
-            }
-            const searchableText = (item.id + " " + item.patientId + " " + patientService.getPatientNameById(item.patientId) + " " +
-                userService.getFullNameByUsername(item.doctorUsername) + " " + medicineNames.join(" ")).toLowerCase();
-            if (this.searchKeyword !== "" && !searchableText.includes(this.searchKeyword)) {
-                continue;
-            }
-
-            result.push(item);
-        }
-        return result;
-    }
-
     refreshTable() {
-        const prescriptions = this.getFilteredPrescriptions();
-        const isFiltering = this.searchKeyword !== "" || this.filterDate !== "";
+        const prescriptions = prescriptionService.getAllPrescriptions();
         const columns = [
             { title: "ID", getCellHtml: function (item) { return item.id; } },
             { title: "Date", getCellHtml: function (item) { return item.date; } },
@@ -106,7 +65,7 @@ class PrescriptionsPage {
         ];
 
         document.getElementById("prescriptionTable").innerHTML =
-            tableBuilder.buildTableHtml(columns, prescriptions, isFiltering ? "No prescriptions match your search." : "No prescriptions yet.");
+            tableBuilder.buildTableHtml(columns, prescriptions, "No prescriptions yet.");
     }
 
     // ---------- New prescription form ----------
