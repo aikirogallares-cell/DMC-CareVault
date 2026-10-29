@@ -144,7 +144,7 @@ class ConsultationsPage {
         const fields = [];
         fields.push({ name: "patientId", label: "Patient", type: "select", options: patientService.getPatientSelectOptions(), isFullWidth: true, defaultValue: chosenPatientId });
         fields.push({ name: "date", label: "Date", type: "date", isRequired: true, defaultValue: dateHelper.getTodayString() });
-        fields.push({ name: "status", label: "Consultation Status", type: "select", options: formBuilder.createOptionsFromTexts(["In Progress", "Completed"]) })
+        fields.push({ name: "status", label: "Consultation Status", type: "select", options: formBuilder.createOptionsFromTexts(["Completed", "In Progress"]), defaultValue: "Completed" });
         fields.push({ name: "complaint", label: "Chief Complaint", type: "text", isRequired: true, isFullWidth: true });
         fields.push({ name: "symptoms", label: "Symptoms", type: "textarea", isFullWidth: true });
 
@@ -181,9 +181,16 @@ class ConsultationsPage {
                 const formValues = formBuilder.readFormValues(fields);
                 formValues.id = consultationToEdit === null ? "" : consultationToEdit.id;
 
+                const wasAlreadyCompleted = consultationToEdit !== null && consultationToEdit.status === "Completed";
+
                 const result = consultationService.saveConsultation(formValues);
                 page.showSaveMessage(formValues.status, result);
                 page.refreshTable();
+
+                // A consultation that was just finished: ask if the patient gets a prescription.
+                if (formValues.status === "Completed" && wasAlreadyCompleted === false) {
+                    page.askAboutPrescription(formValues.patientId);
+                }
             }
         });
         dialog.open();
@@ -218,6 +225,27 @@ class ConsultationsPage {
         notifier.showSuccess("Consultation saved.");
     }
     
+    // Pop-up shown after a consultation is finished: prescription Yes or No.
+    askAboutPrescription(patientId) {
+        const patientName = patientService.getPatientNameById(patientId);
+
+        let html = '<p class="popup-lead">Will <b>' + htmlHelper.escapeText(patientName) + '</b> be given a prescription?</p>';
+        html += '<div class="popup-actions">';
+        html += '<button class="btn ghost" id="noPrescriptionButton">No prescription</button>';
+        html += '<button class="btn" id="yesPrescriptionButton">Yes, write prescription</button>';
+        html += "</div>";
+
+        const dialog = new ModalDialog("Prescription", html);
+        dialog.open();
+
+        dialog.findInside("noPrescriptionButton").addEventListener("click", function () {
+            dialog.close();
+        });
+        dialog.findInside("yesPrescriptionButton").addEventListener("click", function () {
+            window.location.href = "prescriptions.html?new=1&patient=" + encodeURIComponent(patientId);
+        });
+    }
+
     openViewDialog(consultation) {
         const vitalsText = "BP " + consultation.bloodPressure + " | HR " + consultation.heartRate +
             " | Temp " + consultation.temperature + " °C | RR " + consultation.respiratoryRate +

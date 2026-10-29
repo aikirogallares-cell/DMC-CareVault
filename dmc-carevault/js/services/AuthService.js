@@ -27,25 +27,24 @@ class AuthService {
             return { success: false, message: "Please enter your username and password." };
         }
 
-        const user = this.findUserByUsername(username);
-
-        // The same message is used for "no such user" and "wrong password"
-        // so a stranger cannot find out which usernames exist.
-        if (user === null || !passwordHasher.isPasswordCorrect(password, user.salt, user.passwordHash)) {
-            this.registerFailedAttempt();
-            auditLogService.addEntry(username, "unknown", "Login failed", "Wrong username or password");
-            return { success: false, message: "Invalid username or password." };
+        // The server checks the password against the database and starts the login session.
+        let reply = null;
+        try {
+            reply = storageService.sendRequest("POST", "auth.php?action=login", { username: username, password: password });
+        } catch (error) {
+            return { success: false, message: error.message };
         }
 
-        if (user.isActive === false) {
-            return { success: false, message: "This account is deactivated. Please contact the administrator." };
+        if (reply.success === false) {
+            if (reply.message === "Invalid username or password.") {
+                this.registerFailedAttempt();
+            }
+            return { success: false, message: reply.message };
         }
 
         this.resetFailedAttempts();
-        this.startSession(user);
-        auditLogService.addEntry(user.username, user.role, "Login", "Signed in");
-
-        return { success: true, user: user };
+        this.startSession(reply.user, reply.token);
+        return { success: true, user: reply.user };
     }
 
     findUserByUsername(username) {
@@ -92,10 +91,10 @@ class AuthService {
     // Only the username and last activity time are stored in the session.
     // The role is always read again from the saved users, so a changed role
     // or a deactivated account takes effect immediately.
-    startSession(user) {
-        const session = { username: user.username, lastActivity: Date.now() };
-        sessionStorage.setItem(this.sessionKey, JSON.stringify(session));
-    }
+    startSession(user, token) {
+    const session = { username: user.username, lastActivity: Date.now(), token: token };
+    sessionStorage.setItem(this.sessionKey, JSON.stringify(session));
+   }
 
     // Returns { id, username, fullName, role } or null if nobody is logged in.
     getCurrentUser() {
@@ -136,10 +135,11 @@ class AuthService {
     }
 
     logout() {
-        const currentUser = this.getCurrentUser();
-
-        if (currentUser !== null) {
-            auditLogService.addEntry(currentUser.username, currentUser.role, "Logout", "Signed out");
+        // The server records the logout and ends its own session.
+        try {
+            storageService.sendRequest("POST", "auth.php?action=logout", {});
+        } catch (error) {
+            console.error("Logout request failed.", error);
         }
 
         this.clearSession();

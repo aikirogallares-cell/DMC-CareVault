@@ -43,6 +43,12 @@ class PrescriptionsPage {
         });
 
         this.refreshTable();
+
+        // Opened from the consultation pop-up: ?new=1&patient=P-0001 starts a prescription for that patient.
+        const urlParameters = new URLSearchParams(window.location.search);
+        if (urlParameters.get("new") === "1" && canWrite) {
+            this.openPrescriptionForm(urlParameters.get("patient") || "");
+        }
     }
 
     refreshTable() {
@@ -95,7 +101,7 @@ class PrescriptionsPage {
         return html;
     }
 
-    openPrescriptionForm() {
+    openPrescriptionForm(preselectedPatientId) {
         const page = this;
 
         const topFields = [
@@ -104,7 +110,7 @@ class PrescriptionsPage {
             { name: "date", label: "Date", type: "date", isRequired: true, defaultValue: dateHelper.getTodayString() }
         ];
 
-        let bodyHtml = formBuilder.buildFormHtml(topFields, {});
+        let bodyHtml = formBuilder.buildFormHtml(topFields, { patientId: preselectedPatientId || "" });
         bodyHtml += '<h4 style="color:var(--g)">Medicines</h4>';
         bodyHtml += '<div id="medicineRows">' + this.buildMedicineRowHtml() + "</div>";
         bodyHtml += '<button class="btn sm ghost" type="button" id="addMedicineButton">+ Add medicine</button>';

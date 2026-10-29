@@ -12,10 +12,31 @@ class Validator {
     }
 
     // Philippine mobile number: exactly 11 digits and it must start with 09 (example: 09171234567).
-    checkContactNumber(value) {
+    // "label" is optional: it lets the message name the box (for example "Emergency contact number").
+    checkContactNumber(value, label) {
         const pattern = /^09[0-9]{9}$/;
         if (!pattern.test(value)) {
-            return "Contact number must be 11 digits and start with 09 (example: 09171234567).";
+            const boxName = label === undefined ? "Contact number" : label;
+            return boxName + " must be 11 digits and start with 09 (example: 09171234567).";
+        }
+        return "";
+    }
+
+    // Barangay: a name that has letters. Numbers are allowed only together with letters (example: "Barangay 105").
+    checkBarangay(value) {
+        const hasOnlyAllowedCharacters = /^[\p{L}\p{M}\p{N}\s.'\u2019-]+$/u.test(value);
+        const hasLetters = /\p{L}/u.test(value);
+        if (!hasOnlyAllowedCharacters || !hasLetters) {
+            return "Barangay must contain letters (example: Poblacion or Barangay 105).";
+        }
+        return "";
+    }
+
+    // ID numbers such as the senior citizen ID or the PWD ID. The format differs by city, so only the basics are checked.
+    checkIdNumber(label, value) {
+        const pattern = /^[A-Za-z0-9][A-Za-z0-9\-\/ ]{2,24}$/;
+        if (!pattern.test(value)) {
+            return label + " must be 3 to 25 characters (letters, numbers, - or /).";
         }
         return "";
     }

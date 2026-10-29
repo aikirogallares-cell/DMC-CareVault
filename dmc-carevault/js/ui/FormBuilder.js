@@ -1,4 +1,3 @@
-
 class FormBuilder {
     buildFormHtml(fieldList, existingValues) {
         let html = '<div class="fgrid">';
@@ -17,10 +16,23 @@ class FormBuilder {
         return html;
     }
     constructor() {
-        // One listener for the whole page. It keeps "digits only" boxes limited to numbers.
+        // Boxes with a blockCharacters rule (for example names: no numbers). Filled in by buildOneField.
+        this.blockRules = {};
+        const builder = this;
+
+        // One listener for the whole page. It keeps "digits only" boxes limited to numbers,
+        // and removes the characters a box does not allow (blockCharacters) as the user types or pastes.
         document.addEventListener("input", function (event) {
             if (event.target.getAttribute("data-digits-only") === "1") {
                 event.target.value = event.target.value.replace(/[^0-9]/g, "");
+            }
+
+            const blockRule = builder.blockRules[event.target.id];
+            if (blockRule !== undefined) {
+                const cleanedValue = event.target.value.replace(blockRule, "");
+                if (cleanedValue !== event.target.value) {
+                    event.target.value = cleanedValue;
+                }
             }
         });
     }
@@ -71,6 +83,12 @@ class FormBuilder {
             // digitsOnly removes any letters or symbols as the user types or pastes.
             if (field.digitsOnly === true) {
                 extraAttributes += ' data-digits-only="1" inputmode="numeric"';
+            }
+            // blockCharacters: a regular expression (with the g flag) matching the characters this box does not allow.
+            if (field.blockCharacters !== undefined) {
+                this.blockRules[inputId] = field.blockCharacters;
+            } else {
+                delete this.blockRules[inputId];
             }
             html += '<input id="' + inputId + '" type="' + field.type + '" value="' + htmlHelper.escapeText(currentValue) + '"' + extraAttributes + ' autocomplete="off">';
         }
@@ -203,11 +221,12 @@ class FormBuilder {
             updateHighlight();
         };
 
-            const chooseOption = function (option) {
+        const chooseOption = function (option) {
             hiddenBox.value = option.value;
-            hiddenBox.dispatchEvent(new Event("change", { bubbles: true }));
             searchBox.value = option.label;
             closeList();
+            // Lets a page react to the choice (for example the Medical History page).
+            hiddenBox.dispatchEvent(new Event("change", { bubbles: true }));
         };
 
         const moveHighlight = function (step) {
@@ -225,9 +244,12 @@ class FormBuilder {
         });
 
         searchBox.addEventListener("input", function () {
-        // Typing again means the earlier choice no longer applies, so the user must choose again.
-        hiddenBox.value = "";
-            hiddenBox.dispatchEvent(new Event("change", { bubbles: true }));
+            // Typing again means the earlier choice no longer applies, so the user must choose again.
+            const hadChoice = hiddenBox.value !== "";
+            hiddenBox.value = "";
+            if (hadChoice) {
+                hiddenBox.dispatchEvent(new Event("change", { bubbles: true }));
+            }
             renderList();
         });
 

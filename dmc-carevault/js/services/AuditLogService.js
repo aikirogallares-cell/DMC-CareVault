@@ -1,45 +1,22 @@
 /*
  * AuditLogService.js
  * Purpose: keeps a history of important actions (login, patient created, user deactivated, ...).
- * Admin can read this list on the Activity Logs page (Part 2).
+ * The lines are stored in the database (audit_logs table). The server records who did the action
+ * from the login session, so the username and role cannot be faked from the browser.
+ * Admin can read this list on the Activity Logs page.
  */
 class AuditLogService {
-    constructor() {
-        this.maximumEntries = 500;
-    }
-
-    // Used when we already know who did the action (for example during login).
+    // Kept so older code that calls it still works. The server decides the username and role.
     addEntry(username, role, action, details) {
-        const logs = storageService.loadList("auditLogs");
-
-        const newEntry = {
-            time: new Date().toISOString(),
-            username: username,
-            role: role,
-            action: action,
-            details: details
-        };
-
-        // Newest entry goes first.
-        logs.unshift(newEntry);
-
-        // Remove the oldest entries so the list does not grow forever.
-        while (logs.length > this.maximumEntries) {
-            logs.pop();
-        }
-
-        storageService.saveList("auditLogs", logs);
+        storageService.appendAuditLog(action, details);
     }
 
     // Used by all other services: the user is taken from the current session.
     recordAction(action, details) {
-        const currentUser = authService.getCurrentUser();
-
-        if (currentUser === null) {
-            this.addEntry("unknown", "unknown", action, details);
-        } else {
-            this.addEntry(currentUser.username, currentUser.role, action, details);
+        if (authService.getCurrentUser() === null) {
+            return;
         }
+        storageService.appendAuditLog(action, details);
     }
 
     getAllEntries() {

@@ -220,6 +220,35 @@ class AppointmentService {
         return null;
     }
 
+    // First come, first served. Waiting patients are in one line per doctor and per day, in queue number order.
+    // For every waiting patient who is NOT first in that line, this gives the patient who is first.
+    // Result: { appointmentId: firstEntryOfTheLine }. A patient who is not in the result is next in line.
+    getServeFirstMap(appointmentList) {
+        const service = this;
+        const waitingList = [];
+        for (let i = 0; i < appointmentList.length; i++) {
+            if (appointmentList[i].status === "Waiting") {
+                waitingList.push(appointmentList[i]);
+            }
+        }
+        waitingList.sort(function (first, second) {
+            return service.compareQueueOrder(first, second);
+        });
+
+        const firstInLine = {};
+        const serveFirstMap = {};
+        for (let i = 0; i < waitingList.length; i++) {
+            const entry = waitingList[i];
+            const lineKey = entry.date + "|" + entry.doctorUsername;
+            if (firstInLine[lineKey] === undefined) {
+                firstInLine[lineKey] = entry;
+            } else {
+                serveFirstMap[entry.id] = firstInLine[lineKey];
+            }
+        }
+        return serveFirstMap;
+    }
+
     // Used by the queue buttons and the Cancel button.
     changeStatus(appointmentId, newStatus) {
         const canManage = permissionService.userCan("appointments.manage");
@@ -236,6 +265,15 @@ class AppointmentService {
         const appointment = this.findInList(savedAppointments, appointmentId);
         if (appointment === null) {
             throw new Error("Appointment not found.");
+        }
+
+        // First come, first served: a patient cannot be sent to the doctor while someone who came earlier is still waiting.
+        if (newStatus === "In Consultation") {
+            const mustGoFirst = this.getServeFirstMap(savedAppointments)[appointment.id];
+            if (mustGoFirst !== undefined) {
+                throw new Error("First come, first served: queue number " + mustGoFirst.queueNumber + " (" +
+                    patientService.getPatientNameById(mustGoFirst.patientId) + ") arrived first and must be sent to the doctor first.");
+            }
         }
 
         // The vital signs must be recorded before the patient goes to the doctor.
@@ -312,7 +350,8 @@ class AppointmentService {
         let error = this.checkNumberRange("Heart rate", data.heartRate, 30, 220, true);
         if (error !== "") { return error; }
 
-        error = this.checkNumberRange("Temperature", data.temperature, 34, 43, false);
+        // Temperature has no upper limit: any number above 0 is accepted.
+        error = this.checkPositiveNumber("Temperature", data.temperature);
         if (error !== "") { return error; }
 
         error = this.checkNumberRange("Respiratory rate", data.respiratoryRate, 5, 60, true);
@@ -325,6 +364,23 @@ class AppointmentService {
         if (String(data.height || "").trim() !== "") {
             error = this.checkNumberRange("Height", data.height, 30, 250, false);
             if (error !== "") { return error; }
+        }
+        return "";
+    }
+
+    // Returns an error text, or "" if the value is a number above 0 (no upper limit).
+    checkPositiveNumber(label, value) {
+        const text = String(value === undefined || value === null ? "" : value).trim();
+        if (text === "") {
+            return label + " is required.";
+        }
+
+        const number = Number(text);
+        if (!Number.isFinite(number)) {
+            return label + " must be a number.";
+        }
+        if (number <= 0) {
+            return label + " must be more than 0.";
         }
         return "";
     }

@@ -16,6 +16,8 @@ class AppointmentsPage {
         this.searchKeyword = "";
         this.filterDate = dateHelper.getTodayString();
         this.filterStatus = "";
+        // First come, first served: { appointmentId: the patient who must be sent to the doctor first }.
+        this.serveFirstMap = {};
     }
 
     start() {
@@ -122,6 +124,7 @@ class AppointmentsPage {
 
     refreshTable() {
         const page = this;
+        this.serveFirstMap = appointmentService.getServeFirstMap(appointmentService.getAppointmentsForCurrentUser());
         const columns = [
             { title: "Date", getCellHtml: function (item) { return item.date; } },
             { title: "Queue #", getCellHtml: function (item) {
@@ -219,8 +222,15 @@ class AppointmentsPage {
 
         const nextStep = this.getNextStep(entry.status);
         if (nextStep !== null && permissionService.userCan("queue.manage")) {
-            html += '<button class="btn sm" data-step-id="' + id + '" data-step-status="' + nextStep.nextStatus + '">' +
-                nextStep.buttonText + "</button> ";
+            const mustGoFirst = this.serveFirstMap[id];
+            if (nextStep.nextStatus === "In Consultation" && mustGoFirst !== undefined) {
+                // First come, first served: someone who arrived earlier is still waiting.
+                html += '<button class="btn sm ghost" disabled title="Queue number ' + mustGoFirst.queueNumber +
+                    ' arrived first and must be served first">Wait for #' + mustGoFirst.queueNumber + "</button> ";
+            } else {
+                html += '<button class="btn sm" data-step-id="' + id + '" data-step-status="' + nextStep.nextStatus + '">' +
+                    nextStep.buttonText + "</button> ";
+            }
         }
 
         const isFinished = entry.status === "Completed" || entry.status === "Cancelled";
@@ -374,7 +384,7 @@ class AppointmentsPage {
         return [
             { name: "bloodPressure", label: "Blood Pressure (mmHg, e.g. 120/80)", type: "text", isRequired: true, isFullWidth: true },
             { name: "heartRate", label: "Heart Rate (beats per minute)", type: "number", isRequired: true, min: 30, max: 220 },
-            { name: "temperature", label: "Temperature (°C)", type: "number", isRequired: true, min: 34, max: 43 },
+            { name: "temperature", label: "Temperature (°C)", type: "number", isRequired: true, min: 0 },
             { name: "respiratoryRate", label: "Respiratory Rate (breaths per minute)", type: "number", isRequired: true, min: 5, max: 60 },
             { name: "weight", label: "Weight (kg)", type: "number", isRequired: true, min: 1, max: 300 },
             { name: "height", label: "Height (cm), optional", type: "number", min: 30, max: 250 }

@@ -19,30 +19,20 @@ class SettingsService {
         };
     }
 
+    // The server checks the current password and saves the new one (as a bcrypt hash).
     changeOwnPassword(currentPassword, newPassword) {
         const currentUser = authService.getCurrentUser();
         if (currentUser === null) {
             throw new Error("You must be logged in.");
         }
 
-        const users = storageService.loadList("users");
-        let savedUser = null;
-        for (let i = 0; i < users.length; i++) {
-            if (users[i].id === currentUser.id) {
-                savedUser = users[i];
-            }
-        }
-
-        if (!passwordHasher.isPasswordCorrect(currentPassword, savedUser.salt, savedUser.passwordHash)) {
-            throw new Error("Current password is incorrect.");
-        }
-
         const error = validator.checkPassword(newPassword);
         if (error !== "") { throw new Error(error); }
 
-        savedUser.passwordHash = passwordHasher.hashPassword(newPassword, savedUser.salt);
-        storageService.saveList("users", users);
-        auditLogService.recordAction("Password changed", "User changed their own password");
+        storageService.sendRequest("POST", "auth.php?action=changePassword", {
+            currentPassword: currentPassword,
+            newPassword: newPassword
+        });
     }
 }
 

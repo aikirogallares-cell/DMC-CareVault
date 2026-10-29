@@ -6,6 +6,45 @@
 class PatientService {
     constructor() {
         this.validGenders = ["Male", "Female"];
+        this.yesNoValues = ["Yes", "No"];
+        // A patient is a senior citizen from this age (in years).
+        this.seniorAge = 60;
+    }
+
+    // The age in whole years, or null when the date is empty, wrong or in the future.
+    getAgeInYears(birthDateString) {
+        if (!birthDateString) {
+            return null;
+        }
+
+        const parts = String(birthDateString).split("-");
+        const year = parseInt(parts[0]);
+        const month = parseInt(parts[1]);
+        const day = parseInt(parts[2]);
+        if (isNaN(year) || isNaN(month) || isNaN(day)) {
+            return null;
+        }
+
+        const now = new Date();
+        let years = now.getFullYear() - year;
+        const birthdayNotYetThisYear = (now.getMonth() + 1) < month || ((now.getMonth() + 1) === month && now.getDate() < day);
+        if (birthdayNotYetThisYear) {
+            years = years - 1;
+        }
+        if (years < 0) {
+            return null;
+        }
+        return years;
+    }
+
+    // Senior citizen is automatic: 60 years old or above. Nobody has to edit it when a patient turns 60.
+    isSeniorBirthDate(birthDateString) {
+        const years = this.getAgeInYears(birthDateString);
+        return years !== null && years >= this.seniorAge;
+    }
+
+    isSenior(patient) {
+        return this.isSeniorBirthDate(patient.birthDate);
     }
 
     // The address is typed in three boxes (lot no., barangay, city).
@@ -126,6 +165,44 @@ class PatientService {
             return "Gender must be Male or Female.";
         }
 
+        // PWD is Yes or No. Older records do not have it, so it is optional here.
+        if (data.pwd !== undefined && !this.yesNoValues.includes(data.pwd)) {
+            return "PWD must be Yes or No.";
+        }
+
+        // A senior citizen (60 or above, worked out from the birth date) needs a senior citizen ID number.
+        // A PWD patient needs a PWD ID number.
+        if (this.isSeniorBirthDate(data.birthDate)) {
+            error = validator.checkRequired("Senior citizen ID number", data.seniorNumber);
+            if (error !== "") { return "Senior citizen ID number is required (the patient is 60 years old or above)."; }
+            error = validator.checkIdNumber("Senior citizen ID number", String(data.seniorNumber).trim());
+            if (error !== "") { return error; }
+        }
+        if (data.pwd === "Yes") {
+            error = validator.checkRequired("PWD ID number", data.pwdNumber);
+            if (error !== "") { return "PWD ID number is required when PWD is Yes."; }
+            error = validator.checkIdNumber("PWD ID number", String(data.pwdNumber).trim());
+            if (error !== "") { return error; }
+        }
+
+        // Address and emergency contact are optional, but what is typed must make sense.
+        if (data.barangay !== undefined && data.barangay !== "") {
+            error = validator.checkBarangay(data.barangay);
+            if (error !== "") { return error; }
+        }
+        if (data.city !== undefined && data.city !== "") {
+            error = validator.checkPersonName("City", data.city);
+            if (error !== "") { return error; }
+        }
+        if (data.emergencyName !== undefined && data.emergencyName !== "") {
+            error = validator.checkPersonName("Emergency contact name", data.emergencyName);
+            if (error !== "") { return error; }
+        }
+        if (data.emergencyContactNumber !== undefined && data.emergencyContactNumber !== "") {
+            error = validator.checkContactNumber(data.emergencyContactNumber, "Emergency contact number");
+            if (error !== "") { return error; }
+        }
+
         // Contact number and address are optional (not every patient has them),
         // but a contact number that is typed must still be a valid number (11 digits, starts with 09).
         if (data.contactNumber !== undefined && data.contactNumber !== "") {
@@ -141,6 +218,15 @@ class PatientService {
         const validationError = this.validatePatientData(data);
         if (validationError !== "") {
             throw new Error(validationError);
+        }
+
+        // Senior citizen is always worked out from the birth date. An ID number is only kept when it applies.
+        data.seniorCitizen = this.isSeniorBirthDate(data.birthDate) ? "Yes" : "No";
+        if (data.seniorCitizen === "No") {
+            data.seniorNumber = "";
+        }
+        if (data.pwd === "No") {
+            data.pwdNumber = "";
         }
 
         // Keep one readable "address" line, built from the three address boxes.
@@ -170,6 +256,11 @@ class PatientService {
         data.dateRegistered = dateHelper.getTodayString();
         data.lastVisit = "";
         data.isArchived = false;
+
+        // A new patient is not PWD unless staff chose Yes.
+        if (data.pwd === undefined) { data.pwd = "No"; }
+        if (data.seniorNumber === undefined) { data.seniorNumber = ""; }
+        if (data.pwdNumber === undefined) { data.pwdNumber = ""; }
 
         // Sensitive fields default to "None" when the registering user cannot enter them.
         if (data.medicalConditions === undefined) { data.medicalConditions = "None"; }

@@ -86,14 +86,13 @@ class UserService {
             throw new Error("That username is already taken.");
         }
 
-        const salt = passwordHasher.createSalt();
+        // The password is sent as typed; the server turns it into a secure hash.
         const newUser = {
             id: storageService.generateNextId("U", savedUsers),
             username: formData.username,
             fullName: formData.fullName.trim(),
             role: formData.role,
-            salt: salt,
-            passwordHash: passwordHasher.hashPassword(formData.password, salt),
+            plainPassword: formData.password,
             isActive: true
         };
 
@@ -143,7 +142,7 @@ class UserService {
         if (formData.password !== "") {
             const passwordError = validator.checkPassword(formData.password);
             if (passwordError !== "") { throw new Error(passwordError); }
-            userToEdit.passwordHash = passwordHasher.hashPassword(formData.password, userToEdit.salt);
+            userToEdit.plainPassword = formData.password;
         }
 
         storageService.saveList("users", savedUsers);

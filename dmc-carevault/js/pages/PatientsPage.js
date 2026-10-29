@@ -76,6 +76,7 @@ class PatientsPage {
             { title: "Patient Name", getCellHtml: function (patient) { return htmlHelper.escapeText(htmlHelper.getFullName(patient)); } },
             { title: "Age", getCellHtml: function (patient) { return dateHelper.getAgeText(patient.birthDate); } },
             { title: "Gender", getCellHtml: function (patient) { return patient.gender; } },
+            { title: "Senior / PWD", getCellHtml: function (patient) { return page.buildCategoryBadgesHtml(patient); } },
             { title: "Contact", getCellHtml: function (patient) {
                 if (!patient.contactNumber) {
                     return "-";
@@ -93,6 +94,22 @@ class PatientsPage {
 
         document.getElementById("patientTable").innerHTML =
             tableBuilder.buildTableHtml(columns, patients, "No patient records found.");
+    }
+
+    // Small labels for the patient list: "Senior" and/or "PWD", or "-" when the patient is neither.
+    // Senior comes from the age (60 or above), so it appears by itself when a patient turns 60.
+    buildCategoryBadgesHtml(patient) {
+        let html = "";
+        if (patientService.isSenior(patient)) {
+            html += htmlHelper.buildStatusBadge("Senior") + " ";
+        }
+        if (patient.pwd === "Yes") {
+            html += htmlHelper.buildStatusBadge("PWD");
+        }
+        if (html === "") {
+            return "-";
+        }
+        return html;
     }
 
     // Only the buttons the current user may use are created.
@@ -150,6 +167,7 @@ class PatientsPage {
         const genderOptions = [{ value: "", label: "Select gender" }].concat(
             formBuilder.createOptionsFromTexts(patientService.validGenders));
         const civilStatusOptions = formBuilder.createOptionsFromTexts(["Single", "Married", "Widowed", "Separated"]);
+        const yesNoOptions = formBuilder.createOptionsFromTexts(["No", "Yes"]);
         const bloodTypeOptions = formBuilder.createOptionsFromTexts(["Unknown", "A+", "A-", "B+", "B-", "AB+", "AB-", "O+", "O-"]);
         const relationshipOptions = [{ value: "", label: "Select relationship" }].concat(
             formBuilder.createOptionsFromTexts(["Parent", "Spouse", "Child", "Sibling", "Grandparent", "Relative", "Guardian", "Friend", "Other"]));
@@ -158,6 +176,9 @@ class PatientsPage {
         const blockedInNames = /[^\p{L}\p{M}\s.'\u2019-]/gu;
         // Contact number: only digits can be typed.
         const blockedInNumbers = /\D/g;
+        // Barangay may also have numbers (example: Barangay 105). ID numbers: letters, numbers, - / and spaces.
+        const blockedInBarangay = /[^\p{L}\p{M}\p{N}\s.'\u2019-]/gu;
+        const blockedInIdNumbers = /[^A-Za-z0-9\-\/ ]/g;
 
         fields.push({ sectionTitle: "Personal Information" });
         if (isEditing) {
@@ -173,16 +194,28 @@ class PatientsPage {
         fields.push({ name: "birthDate", label: "Date of Birth", type: "date", isRequired: true, max: dateHelper.getTodayString(), validate: validator.checkBirthDate });
         fields.push({ name: "gender", label: "Gender", type: "select", isRequired: true, options: genderOptions });
         fields.push({ name: "civilStatus", label: "Civil Status", type: "select", options: civilStatusOptions });
+        // Senior citizen is automatic (60 years old or above, from the date of birth). PWD is chosen by staff.
+        // The ID number boxes only appear when they apply (see connectSeniorAndPwdFields).
+        fields.push({ name: "seniorCitizen", label: "Senior Citizen (automatic, 60 years old and above)", type: "text", isReadOnly: true, defaultValue: "No" });
+        fields.push({ name: "pwd", label: "PWD (Person with Disability)", type: "select", options: yesNoOptions, defaultValue: "No" });
+        fields.push({ name: "seniorNumber", label: "Senior Citizen ID No. *", type: "text", maxLength: 25, blockCharacters: blockedInIdNumbers,
+            validate: function (value) { return validator.checkIdNumber("Senior citizen ID number", value); } });
+        fields.push({ name: "pwdNumber", label: "PWD ID No. *", type: "text", maxLength: 25, blockCharacters: blockedInIdNumbers,
+            validate: function (value) { return validator.checkIdNumber("PWD ID number", value); } });
         fields.push({ name: "contactNumber", label: "Contact Number", type: "text", maxLength: 11, digitsOnly: true });
         // The address is typed in three boxes. PatientService joins them into one address line.
         fields.push({ name: "lotNo", label: "Lot No.", type: "text", placeholder: "Example: 12 or Lot 12 Blk 3" });
-        fields.push({ name: "barangay", label: "Barangay", type: "text", placeholder: "Example: Poblacion" });
-        fields.push({ name: "city", label: "City", type: "text", isFullWidth: true, placeholder: "Example: Makati City" });
+        fields.push({ name: "barangay", label: "Barangay", type: "text", maxLength: 50, placeholder: "Example: Poblacion", blockCharacters: blockedInBarangay,
+            validate: function (value) { return validator.checkBarangay(value); } });
+        fields.push({ name: "city", label: "City", type: "text", isFullWidth: true, maxLength: 50, placeholder: "Example: Makati City", blockCharacters: blockedInNames,
+            validate: function (value) { return validator.checkPersonName("City", value); } });
 
         fields.push({ sectionTitle: "Emergency Contact" });
-        fields.push({ name: "emergencyName", label: "Name", type: "text" });
+        fields.push({ name: "emergencyName", label: "Name", type: "text", maxLength: 60, blockCharacters: blockedInNames,
+            validate: function (value) { return validator.checkPersonName("Emergency contact name", value); } });
         fields.push({ name: "emergencyRelationship", label: "Relationship", type: "select", options: relationshipOptions });
-        fields.push({ name: "emergencyContactNumber", label: "Contact Number", type: "text" });
+        fields.push({ name: "emergencyContactNumber", label: "Contact Number", type: "text", maxLength: 11, digitsOnly: true,
+            validate: function (value) { return validator.checkContactNumber(value, "Emergency contact number"); } });
 
         fields.push({ sectionTitle: "Medical Information" });
         fields.push({ name: "bloodType", label: "Blood Type", type: "select", options: bloodTypeOptions });
@@ -227,6 +260,29 @@ class PatientsPage {
         });
         dialog.open();
         formBuilder.connectFields(dialog.getElement(), fields);
+        this.connectSeniorAndPwdFields(dialog.getElement());
+    }
+
+    // Senior citizen follows the date of birth by itself (60 years old or above).
+    // The Senior ID box shows only for a senior, and the PWD ID box only when PWD is Yes.
+    connectSeniorAndPwdFields(dialogElement) {
+        const birthBox = dialogElement.querySelector("#field_birthDate");
+        const seniorBox = dialogElement.querySelector("#field_seniorCitizen");
+        const pwdBox = dialogElement.querySelector("#field_pwd");
+        const seniorNumberWrapper = dialogElement.querySelector("#field_seniorNumber").closest(".fg");
+        const pwdNumberWrapper = dialogElement.querySelector("#field_pwdNumber").closest(".fg");
+
+        const refresh = function () {
+            const isSenior = patientService.isSeniorBirthDate(birthBox.value);
+            seniorBox.value = isSenior ? "Yes" : "No";
+            seniorNumberWrapper.style.display = isSenior ? "" : "none";
+            pwdNumberWrapper.style.display = pwdBox.value === "Yes" ? "" : "none";
+        };
+
+        birthBox.addEventListener("input", refresh);
+        birthBox.addEventListener("change", refresh);
+        pwdBox.addEventListener("change", refresh);
+        refresh();
     }
 
     savePatientFromForm(fields, patientToEdit) {
@@ -330,6 +386,15 @@ class PatientsPage {
         html += this.buildDetailRow("Age", dateHelper.getAgeText(patient.birthDate));
         html += this.buildDetailRow("Gender", patient.gender);
         html += this.buildDetailRow("Civil Status", patient.civilStatus);
+        const isSenior = patientService.isSenior(patient);
+        html += this.buildDetailRow("Senior Citizen", isSenior ? "Yes" : "No");
+        if (isSenior) {
+            html += this.buildDetailRow("Senior Citizen ID No.", patient.seniorNumber);
+        }
+        html += this.buildDetailRow("PWD", patient.pwd || "No");
+        if (patient.pwd === "Yes") {
+            html += this.buildDetailRow("PWD ID No.", patient.pwdNumber);
+        }
         html += this.buildDetailRow("Address", patient.address);
         html += this.buildDetailRow("Contact Number", patient.contactNumber);
         html += this.buildDetailRow("Emergency Contact", patient.emergencyName + " (" + patient.emergencyRelationship + ") " + patient.emergencyContactNumber);
