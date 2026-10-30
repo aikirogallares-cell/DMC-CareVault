@@ -24,7 +24,7 @@ class BillingPage {
     }
 
     formatPeso(value) {
-        return "₱" + Number(value || 0).toLocaleString("en-PH");
+        return "₱" + Number(value || 0).toLocaleString("en-PH", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
     }
 
     // Shows "-" for a value that was not recorded (for example, bills paid before cash was tracked).
@@ -202,6 +202,7 @@ class BillingPage {
         html += htmlHelper.buildStatCard(this.formatPeso(report.returningPatientSales), "Earned from Returning Patients");
         html += htmlHelper.buildStatCard(this.formatPeso(report.serviceSales), "Services Sold");
         html += htmlHelper.buildStatCard(this.formatPeso(report.medicineSales), "Medicines Sold");
+        html += htmlHelper.buildStatCard(this.formatPeso(report.discountTotal), "Senior / PWD Discounts Given");
         cardsElement.innerHTML = html;
 
         const page = this;
@@ -294,8 +295,32 @@ class BillingPage {
         }
         html += "</tbody></table></div>";
 
-        html += '<div class="bill-total">Total: <b id="billTotalText">' +
+        // The discount choice starts on what the patient's record says (Senior Citizen or PWD).
+        const patient = patientService.getPatientById(bill.patientId);
+        const suggested = billingService.getSuggestedDiscount(patient);
+        let suggestedIdNumber = "";
+        if (patient !== null && suggested === "Senior Citizen") { suggestedIdNumber = patient.seniorNumber || ""; }
+        if (patient !== null && suggested === "PWD") { suggestedIdNumber = patient.pwdNumber || ""; }
+
+        html += '<div class="bill-total">Subtotal: <b id="billSubtotalText" style="color:var(--tx)">' +
             this.formatPeso(billingService.getBillTotal(bill)) + "</b></div>";
+        html += '<div class="bill-total" style="margin-top:2px">Discount: <b id="billDiscountText" style="color:var(--tx)">' +
+            this.formatPeso(0) + "</b></div>";
+        html += '<div class="bill-total" style="margin-top:2px">Total to pay: <b id="billTotalText">' +
+            this.formatPeso(billingService.getBillTotal(bill)) + "</b></div>";
+
+        html += '<div style="background:#f7fbf7;border:1px solid var(--bd);border-radius:10px;padding:14px 18px;margin-top:16px">';
+        html += '<h4 style="color:var(--g);margin:0 0 10px">Senior Citizen / PWD discount</h4>';
+        html += '<div style="max-width:450px"><label for="discountType">Discount</label>';
+        html += '<select id="discountType"><option value="None">No discount</option>';
+        html += '<option value="Senior Citizen">Senior Citizen (20%)</option><option value="PWD">PWD (20%)</option></select></div>';
+        html += '<div id="discountDetails">';
+        html += '<div style="max-width:450px;margin-top:12px"><label for="discountIdNumber">ID number shown by the patient</label>';
+        html += '<input id="discountIdNumber" value="' + safe(suggestedIdNumber) + '"></div>';
+        html += '<label style="display:flex;gap:8px;align-items:center;margin-top:12px;font-size:14px;color:var(--tx)">';
+        html += '<input type="checkbox" id="discountIdChecked" style="width:auto"> I checked the patient\'s ID and it matches</label>';
+        html += '<p style="margin:8px 0 0;font-size:12px;color:var(--tx2)">Ask for a valid Senior Citizen or PWD ID before giving the discount.</p>';
+        html += "</div></div>";
 
         html += '<div class="cash-box">';
         html += '<label for="cashReceivedInput">Cash received (₱) *</label>';
@@ -314,12 +339,14 @@ class BillingPage {
         dialog.open();
 
         const dialogElement = dialog.getElement();
+        dialogElement.querySelector("#discountType").value = suggested;
         dialogElement.addEventListener("change", function () {
             page.updateDialogTotal(dialogElement);
         });
         dialogElement.addEventListener("input", function () {
             page.updateDialogTotal(dialogElement);
         });
+        this.updateDialogTotal(dialogElement);
     }
 
     buildBillRowHtml(item, isOpen) {
@@ -376,7 +403,20 @@ class BillingPage {
                 total = total + Number(row.getAttribute("data-amount"));
             }
         }
+        // Senior Citizen / PWD discount comes off the subtotal.
+        const discountType = dialogElement.querySelector("#discountType").value;
+        const subtotal = total;
+        const discount = billingService.calculateDiscount(subtotal, discountType);
+        total = subtotal - discount;
+
+        dialogElement.querySelector("#billSubtotalText").textContent = this.formatPeso(subtotal);
+        if (discount > 0) {
+            dialogElement.querySelector("#billDiscountText").textContent = "-" + this.formatPeso(discount);
+        } else {
+            dialogElement.querySelector("#billDiscountText").textContent = this.formatPeso(0);
+        }
         dialogElement.querySelector("#billTotalText").textContent = this.formatPeso(total);
+        dialogElement.querySelector("#discountDetails").style.display = discountType === "None" ? "none" : "block";
 
         const cashText = dialogElement.querySelector("#cashReceivedInput").value.trim();
         const changeElement = dialogElement.querySelector("#cashChangeText");
@@ -400,7 +440,12 @@ class BillingPage {
         billingService.saveDecisions(billId, this.readDecisions(dialogElement));
 
         const cashText = dialogElement.querySelector("#cashReceivedInput").value.trim();
-        const paidBill = billingService.markPaid(billId, cashText);
+        const discount = {
+            type: dialogElement.querySelector("#discountType").value,
+            idNumber: dialogElement.querySelector("#discountIdNumber").value.trim(),
+            idChecked: dialogElement.querySelector("#discountIdChecked").checked
+        };
+        const paidBill = billingService.markPaid(billId, cashText, discount);
 
         notifier.showSuccess("Payment recorded. Medicine stock updated.");
         this.refreshStats();
@@ -468,6 +513,12 @@ class BillingPage {
         }
 
         html += '<hr class="receipt-rule">';
+        if (bill.discountAmount > 0) {
+            html += '<div class="receipt-line"><span>Subtotal</span><span>' + this.formatPeso(bill.subtotal) + "</span></div>";
+            html += '<div class="receipt-line"><span>' + safe(bill.discountType) + " discount (" +
+                Math.round(billingService.discountRate * 100) + '%)</span><span>-' + this.formatPeso(bill.discountAmount) + "</span></div>";
+            html += "<small>ID No.: " + safe(bill.discountIdNumber) + "</small>";
+        }
         html += '<div class="receipt-line receipt-total"><span>Total</span><span>' + this.formatPeso(bill.total) + "</span></div>";
         html += '<div class="receipt-line"><span>Payment method</span><span>' + safe(bill.paymentMethod || "Cash") + "</span></div>";
         html += '<div class="receipt-line"><span>Cash received</span><span>' + this.formatMoneyOrDash(bill.cashReceived) + "</span></div>";

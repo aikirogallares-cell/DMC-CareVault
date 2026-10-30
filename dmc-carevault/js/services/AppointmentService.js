@@ -18,7 +18,9 @@
  */
 class AppointmentService {
     constructor() {
-        this.validStatuses = ["Scheduled", "Confirmed", "Waiting", "In Consultation", "Completed", "Cancelled"];
+        // "Missing" = the patient is not around when called. They are skipped so the line keeps moving,
+        // and they keep their queue number, so when they come back they go ahead of bigger numbers.
+        this.validStatuses = ["Scheduled", "Confirmed", "Waiting", "Missing", "In Consultation", "Completed", "Cancelled"];
         // The reason can be typed freely. These services are only the suggestions shown while typing.
         this.validReasons = ["Check-up", "X-ray", "Urine Test", "Blood Test", "Getting Blood", "Getting Urine"];
     }
@@ -267,6 +269,15 @@ class AppointmentService {
             throw new Error("Appointment not found.");
         }
 
+        // Missing patients: only a waiting patient can be skipped. A missing patient must come back
+        // into the line ("Waiting") before they can be sent to the doctor (or the entry is cancelled).
+        if (newStatus === "Missing" && appointment.status !== "Waiting") {
+            throw new Error("Only a waiting patient can be marked as missing.");
+        }
+        if (appointment.status === "Missing" && newStatus !== "Waiting" && newStatus !== "Cancelled") {
+            throw new Error('This patient is marked as missing. Press "Back in line" when the patient arrives.');
+        }
+
         // First come, first served: a patient cannot be sent to the doctor while someone who came earlier is still waiting.
         if (newStatus === "In Consultation") {
             const mustGoFirst = this.getServeFirstMap(savedAppointments)[appointment.id];
@@ -284,7 +295,13 @@ class AppointmentService {
         // The clock time of each step is saved so the pages can show it.
         const now = new Date().toISOString();
 
-        if (newStatus === "Waiting") {
+        if (newStatus === "Waiting" && appointment.status === "Missing") {
+            // Back in line: the patient KEEPS the old queue number (for example #3),
+            // so they are served before everyone with a bigger number (for example #5).
+            appointment.returnedAt = now;
+        } else if (newStatus === "Missing") {
+            appointment.missingAt = now;
+        } else if (newStatus === "Waiting") {
             // A patient who checks in ("Waiting") gets the next queue number of that day.
             appointment.queueNumber = this.getNextQueueNumber(savedAppointments, appointment.date);
             appointment.queuedAt = now;

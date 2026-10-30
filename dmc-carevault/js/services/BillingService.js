@@ -22,6 +22,10 @@ class BillingService {
             { name: "Getting Blood", price: 100 },
             { name: "Getting Urine", price: 80 }
         ];
+
+        // Senior citizens and PWD get 20% off the whole bill (one discount per bill, never both).
+        this.discountRate = 0.20;
+        this.discountTypes = ["None", "Senior Citizen", "PWD"];
     }
 
     // ----- Service prices -----
@@ -76,151 +80,86 @@ class BillingService {
 
     // Runs every time the Billing page opens.
     syncBills() {
-    permissionService.requirePermission("billing.view");
+        permissionService.requirePermission("billing.view");
 
-    const bills = storageService.loadList("bills");
-    const appointments = storageService.loadList("appointments");
-    const prescriptions = storageService.loadList("prescriptions");
-    const medications = storageService.loadList("medications");
+        const bills = storageService.loadList("bills");
+        const appointments = storageService.loadList("appointments");
+        const prescriptions = storageService.loadList("prescriptions");
+        const medications = storageService.loadList("medications");
 
-    const billedVisitIds = {};
-    const billedPrescriptionIds = {};
-
-    // Identify visits and prescriptions that already have bills.
-    for (let i = 0; i < bills.length; i++) {
-        const existingBill = bills[i];
-
-        if (existingBill.queueEntryId !== undefined &&
-            existingBill.queueEntryId !== null) {
-            billedVisitIds[String(existingBill.queueEntryId)] = true;
-        }
-
-        const prescriptionIds = Array.isArray(existingBill.prescriptionIds)
-            ? existingBill.prescriptionIds
-            : [];
-
-        for (let j = 0; j < prescriptionIds.length; j++) {
-            billedPrescriptionIds[String(prescriptionIds[j])] = true;
-        }
-    }
-
-    const textBefore = JSON.stringify(bills);
-
-    // 1. Automatically create bills for completed visits.
-    for (let i = 0; i < appointments.length; i++) {
-        const visit = appointments[i];
-        const visitId = String(visit.id);
-
-        if (
-            visit.status === "Completed" &&
-            !billedVisitIds[visitId]
-        ) {
-            bills.push(this.createBillForVisit(visit, bills));
-            billedVisitIds[visitId] = true;
-        }
-    }
-
-    // 2. Update every open bill.
-    for (let i = 0; i < bills.length; i++) {
-        const bill = bills[i];
-
-        if (bill.status !== "Open") {
-            continue;
-        }
-
-        // Ensure required arrays exist.
-        if (!Array.isArray(bill.items)) {
-            bill.items = [];
-        }
-
-        if (!Array.isArray(bill.prescriptionIds)) {
-            bill.prescriptionIds = [];
-        }
-
-        // Add prescriptions that have not been billed yet.
-        this.addUnbilledPrescriptions(
-            bill,
-            prescriptions,
-            billedPrescriptionIds,
-            medications
-        );
-
-        // Refresh medicine prices and availability.
-        for (let j = 0; j < bill.items.length; j++) {
-            if (bill.items[j].type === "medicine") {
-                this.refreshMedicineItem(
-                    bill.items[j],
-                    medications
-                );
+        const billedVisitIds = {};
+        const billedPrescriptionIds = {};
+        for (let i = 0; i < bills.length; i++) {
+            billedVisitIds[bills[i].queueEntryId] = true;
+            for (let j = 0; j < bills[i].prescriptionIds.length; j++) {
+                billedPrescriptionIds[bills[i].prescriptionIds[j]] = true;
             }
         }
 
-        // Recalculate subtotal, PWD discount, and final total.
-        this.refreshOpenBillTotals(bill);
+        const textBefore = JSON.stringify(bills);
+
+        // 1. One bill for every finished visit.
+        for (let i = 0; i < appointments.length; i++) {
+            const visit = appointments[i];
+            if (visit.status === "Completed" && !billedVisitIds[visit.id]) {
+                bills.push(this.createBillForVisit(visit, bills));
+                billedVisitIds[visit.id] = true;
+            }
+        }
+
+        // 2. Open bills get the prescriptions for that day, and medicine prices are kept up to date.
+        for (let i = 0; i < bills.length; i++) {
+            const bill = bills[i];
+            if (bill.status !== "Open") {
+                continue;
+            }
+            this.addUnbilledPrescriptions(bill, prescriptions, billedPrescriptionIds, medications);
+            for (let j = 0; j < bill.items.length; j++) {
+                if (bill.items[j].type === "medicine") {
+                    this.refreshMedicineItem(bill.items[j], medications);
+                }
+            }
+        }
+
+        if (JSON.stringify(bills) !== textBefore) {
+            storageService.saveList("bills", bills);
+        }
     }
 
-    // 3. Save if any bill was created or changed.
-    if (JSON.stringify(bills) !== textBefore) {
-        storageService.saveList("bills", bills);
+    createBillForVisit(visit, bills) {
+        const servicePrice = this.findServicePrice(visit.reason);
+        return {
+            id: storageService.generateNextId("B", bills),
+            queueEntryId: visit.id,
+            patientId: visit.patientId,
+            doctorUsername: visit.doctorUsername,
+            visitDate: visit.date,
+            createdAt: new Date().toISOString(),
+            prescriptionIds: [],
+            items: [
+                {
+                    id: "S-" + visit.id,
+                    type: "service",
+                    name: visit.reason,
+                    quantity: 1,
+                    unitPrice: servicePrice,
+                    amount: servicePrice,
+                    decision: "Included",
+                    sellable: true,
+                    note: ""
+                }
+            ],
+            status: "Open",
+            subtotal: 0,
+            discountType: "None",
+            discountIdNumber: "",
+            discountAmount: 0,
+            total: 0,
+            paidDate: "",
+            paidAt: "",
+            paidBy: ""
+        };
     }
-}
-
-createBillForVisit(visit, bills) {
-    const servicePrice = this.findServicePrice(visit.reason);
-    const patient = this.getPatientById(visit.patientId);
-    const isPwd = this.isPwdPatient(patient);
-
-    const discountType = isPwd ? "PWD" : "None";
-    const discountIdNumber = isPwd
-        ? String(patient.pwdId || patient.pwd_id || "").trim()
-        : "";
-
-    const serviceItem = {
-        id: "S-" + visit.id,
-        type: "service",
-        name: visit.reason,
-        quantity: 1,
-        unitPrice: servicePrice,
-        amount: servicePrice,
-        decision: "Included",
-        sellable: true,
-        note: ""
-    };
-
-    const items = [serviceItem];
-    const subtotal = this.calculateSubtotal(items);
-    const discountAmount = this.getDiscountAmount(subtotal, {
-        discountType: discountType
-    });
-
-    return {
-        id: storageService.generateNextId("B", bills),
-
-        // Keep the patient ID from the original visit.
-        queueEntryId: visit.id,
-        patientId: visit.patientId,
-
-        doctorUsername: visit.doctorUsername,
-        visitDate: visit.date,
-        createdAt: new Date().toISOString(),
-
-        prescriptionIds: [],
-        items: items,
-
-        // PWD discount information
-        discountType: discountType,
-        discountIdNumber: discountIdNumber,
-        subtotal: subtotal,
-        discountAmount: discountAmount,
-
-        status: "Open",
-        total: Math.max(0, subtotal - discountAmount),
-
-        paidDate: "",
-        paidAt: "",
-        paidBy: ""
-    };
-}
 
     // Adds the medicines of prescriptions written for this patient on the visit date (once only).
     addUnbilledPrescriptions(bill, prescriptions, billedPrescriptionIds, medications) {
@@ -254,29 +193,6 @@ createBillForVisit(visit, bills) {
         }
     }
 
-    refreshOpenBillTotals(bill) {
-    if (!bill || bill.status !== "Open") {
-        return;
-    }
-
-    const patient = this.getPatientById(bill.patientId);
-    const isPwd = this.isPwdPatient(patient);
-
-    bill.discountType = isPwd ? "PWD" : "None";
-    bill.discountIdNumber = isPwd
-        ? this.getPwdIdNumber(patient)
-        : "";
-
-    bill.subtotal = this.calculateSubtotal(bill.items || []);
-    bill.discountAmount = isPwd
-        ? Math.round(bill.subtotal * 0.20)
-        : 0;
-
-    bill.total = Math.max(
-        0,
-        bill.subtotal - bill.discountAmount
-    );
-}
     // Works out the price and whether the medicine can be bought here right now.
     refreshMedicineItem(item, medications) {
         const resolved = this.resolveMedicine(item.name, item.quantity, medications);
@@ -337,148 +253,82 @@ createBillForVisit(visit, bills) {
 
     // ----- Totals -----
 
-// ----- PWD Discount and Totals -----
-
-getPatientById(patientId) {
-    if (patientId === undefined || patientId === null || patientId === "") {
-        return null;
+    // Services are always included. Medicines count only when the patient buys them here.
+    calculateTotal(items) {
+        let total = 0;
+        for (let i = 0; i < items.length; i++) {
+            if (items[i].type === "service" || items[i].decision === "Buy here") {
+                total = total + (Number(items[i].amount) || 0);
+            }
+        }
+        return total;
     }
 
-    const patients = storageService.loadList("patients");
+    getBillTotal(bill) {
+        if (bill.status === "Paid") {
+            return bill.total;
+        }
+        return this.calculateTotal(bill.items);
+    }
 
-    for (let i = 0; i < patients.length; i++) {
-        if (String(patients[i].id) === String(patientId)) {
-            return patients[i];
+    // ----- Senior Citizen / PWD discount -----
+
+    // The discount in whole pesos: 20% of the subtotal when a discount applies, otherwise 0.
+    calculateDiscount(subtotal, discountType) {
+        if (discountType !== "Senior Citizen" && discountType !== "PWD") {
+            return 0;
+        }
+        return Math.round(subtotal * this.discountRate);
+    }
+
+    // The discount this patient's record qualifies for. Used to pre-select the choice on the bill.
+    getSuggestedDiscount(patient) {
+        if (patient === null || patient === undefined) {
+            return "None";
+        }
+        if (patientService.isSenior(patient)) {
+            return "Senior Citizen";
+        }
+        if (patient.pwd === "Yes") {
+            return "PWD";
+        }
+        return "None";
+    }
+
+    // Checks the discount before payment. Throws an Error with the message to show.
+    // discount: { type, idNumber, idChecked }
+    checkDiscount(patient, discount) {
+        if (!this.discountTypes.includes(discount.type)) {
+            throw new Error("Choose a valid discount.");
+        }
+        if (discount.type === "None") {
+            return;
+        }
+        if (patient === null || patient === undefined) {
+            throw new Error("Patient record not found, so no discount can be given.");
+        }
+
+        if (discount.type === "Senior Citizen" && !patientService.isSenior(patient)) {
+            throw new Error("This patient is not 60 years old or above, so the Senior Citizen discount cannot be given.");
+        }
+        if (discount.type === "PWD" && patient.pwd !== "Yes") {
+            throw new Error("This patient is not registered as PWD, so the PWD discount cannot be given.");
+        }
+
+        const label = discount.type + " ID number";
+        let error = validator.checkRequired(label, discount.idNumber);
+        if (error !== "") {
+            throw new Error(error);
+        }
+        error = validator.checkIdNumber(label, String(discount.idNumber).trim());
+        if (error !== "") {
+            throw new Error(error);
+        }
+        if (discount.idChecked !== true) {
+            throw new Error("Check the patient's ID and tick the box to confirm before giving the discount.");
         }
     }
 
-    return null;
-}
-
-getPwdIdNumber(patient) {
-    if (!patient) {
-        return "";
-    }
-
-    return String(
-        patient.pwdNumber ||
-        patient.pwd_number ||
-        patient.pwdId ||
-        patient.pwd_id ||
-        ""
-    ).trim();
-}
-
-isPwdPatient(patient) {
-    if (!patient) {
-        return false;
-    }
-
-    // storage.php returns "Yes" or "No" in patient.pwd.
-    const value = patient.pwd !== undefined
-        ? patient.pwd
-        : (
-            patient.isPwd !== undefined
-                ? patient.isPwd
-                : patient.is_pwd
-        );
-
-    const normalized = String(value ?? "")
-        .trim()
-        .toLowerCase();
-
-    if (["yes", "true", "1", "y", "pwd"].includes(normalized)) {
-        return true;
-    }
-
-    if (["no", "false", "0", "n"].includes(normalized)) {
-        return false;
-    }
-
-    // Fallback only when no status value is available.
-    return this.getPwdIdNumber(patient) !== "";
-}
-isPwdPatient(patient) {
-    if (!patient) {
-        return false;
-    }
-
-    const value = String(patient.pwd ?? "")
-        .trim()
-        .toLowerCase();
-
-    if (["yes", "true", "1", "y"].includes(value)) {
-        return true;
-    }
-
-    if (["no", "false", "0", "n"].includes(value)) {
-        return false;
-    }
-
-    // Fallback if the status is missing but a PWD number exists.
-    return String(patient.pwdNumber || "").trim() !== "";
-}
-
-// Services are included.
-// Medicines count only when the patient chooses "Buy here".
-calculateSubtotal(items) {
-    let subtotal = 0;
-
-    for (let i = 0; i < items.length; i++) {
-        const item = items[i];
-
-        if (item.type === "service" || item.decision === "Buy here") {
-            subtotal += Number(item.amount) || 0;
-        }
-    }
-
-    return Math.round(subtotal);
-}
-
-// Returns the discount amount in whole pesos.
-getDiscountAmount(subtotal, bill) {
-    if (!bill) {
-        return 0;
-    }
-
-    let discountType = bill.discountType;
-
-    // Support existing bills that do not yet have discountType saved.
-    if (!discountType || discountType === "None") {
-        const patient = this.getPatientById(bill.patientId);
-
-        if (this.isPwdPatient(patient)) {
-            discountType = "PWD";
-        }
-    }
-
-    if (discountType !== "PWD") {
-        return 0;
-    }
-
-    return Math.round((Number(subtotal) || 0) * 0.20);
-}
-
-// Calculates the final amount after discount.
-calculateTotal(items, bill) {
-    const subtotal = this.calculateSubtotal(items);
-    const discountAmount = this.getDiscountAmount(subtotal, bill);
-
-    return Math.max(0, subtotal - discountAmount);
-}
-
-getBillTotal(bill) {
-    if (!bill) {
-        return 0;
-    }
-
-    // Paid bills retain their saved total.
-    if (bill.status === "Paid") {
-        return Number(bill.total) || 0;
-    }
-
-    return this.calculateTotal(bill.items || [], bill);
-}
     // ----- Reading bills -----
 
     // statusFilter: "Open", "Paid" or "All". Newest bill first.
@@ -555,7 +405,7 @@ getBillTotal(bill) {
         // Cash only. Takes the bought medicines out of stock and marks the bill as paid.
     // cashReceived is what the patient handed over. It must cover the total.
     // Returns the paid bill so the receipt can be shown.
-    markPaid(billId, cashReceived) {
+    markPaid(billId, cashReceived, discount) {
         permissionService.requirePermission("billing.collect");
 
         const bills = storageService.loadList("bills");
@@ -591,10 +441,15 @@ getBillTotal(bill) {
             quantityNeeded[resolved.medicationId] = (quantityNeeded[resolved.medicationId] || 0) + item.quantity;
         }
 
+        // Senior Citizen / PWD discount: checked against the patient's record, then taken off the subtotal.
+        const discountChoice = discount || { type: "None", idNumber: "", idChecked: false };
+        this.checkDiscount(patientService.getPatientById(bill.patientId), discountChoice);
+
+        const subtotal = this.calculateTotal(bill.items);
+        const discountAmount = this.calculateDiscount(subtotal, discountChoice.type);
+        const total = subtotal - discountAmount;
+
         // Cash check: the cash must cover the total before anything is changed.
-        const subtotal = this.calculateSubtotal(bill.items);
-        const discountAmount = this.getDiscountAmount(subtotal, bill);
-        const total = Math.max(0, subtotal - discountAmount);
         const cashError = validator.checkWholeNumber("Cash received", cashReceived);
         if (cashError !== "") {
             throw new Error(cashError);
@@ -622,22 +477,9 @@ getBillTotal(bill) {
         storageService.saveList("medications", medications);
 
         bill.subtotal = subtotal;
+        bill.discountType = discountChoice.type;
+        bill.discountIdNumber = discountChoice.type === "None" ? "" : String(discountChoice.idNumber).trim();
         bill.discountAmount = discountAmount;
-
-        if (!bill.discountType || bill.discountType === "None") {
-        const patient = this.getPatientById(bill.patientId);
-
-        if (this.isPwdPatient(patient)) {
-        bill.discountType = "PWD";
-        bill.discountIdNumber = String(
-            patient.pwdId || patient.pwd_id || ""
-        ).trim();
-        } else {
-        bill.discountType = "None";
-        bill.discountIdNumber = "";
-        }
-        }
-
         bill.total = total;
         bill.status = "Paid";
         bill.paymentMethod = "Cash";
@@ -648,56 +490,11 @@ getBillTotal(bill) {
         bill.paidBy = authService.getCurrentUser().username;
         storageService.saveList("bills", bills);
 
-        auditLogService.recordAction("Bill paid (cash)", bill.id + " total " + total);
+        auditLogService.recordAction("Bill paid (cash)", bill.id + " total " + total +
+            (discountAmount > 0 ? " (" + discountChoice.type + " discount " + discountAmount + ")" : ""));
         return bill;
     }
 
-getPatientById(patientId) {
-    const patients = storageService.loadList("patients");
-
-    for (let i = 0; i < patients.length; i++) {
-        if (String(patients[i].id) === String(patientId)) {
-            return patients[i];
-        }
-    }
-
-    return null;
-}
-
-
-getDiscountAmount(subtotal, bill) {
-    if (bill.discountType !== "PWD") {
-        return 0;
-    }
-
-    return Math.round(subtotal * 0.20);
-}
-
-calculateSubtotal(items) {
-    let subtotal = 0;
-
-    for (let i = 0; i < items.length; i++) {
-        const item = items[i];
-
-        if (item.type === "service" || item.decision === "Buy here") {
-            subtotal += Number(item.amount) || 0;
-        }
-    }
-
-    return subtotal;
-}
-
-calculateTotal(items, bill) {
-    const subtotal = this.calculateSubtotal(items);
-
-    if (!bill) {
-        return subtotal;
-    }
-
-    const discount = this.getDiscountAmount(subtotal, bill);
-
-    return Math.max(0, subtotal - discount);
-}
     // ----- Statistics -----
 
     // startDate and endDate are YYYY-MM-DD texts. Sales count on the day the bill was paid.
@@ -721,6 +518,7 @@ calculateTotal(items, bill) {
             newPatients: 0,
             newPatientSales: 0,
             returningPatientSales: 0,
+            discountTotal: 0,
             days: []
         };
         const daily = {};
@@ -750,6 +548,7 @@ calculateTotal(items, bill) {
 
             report.paidBillCount = report.paidBillCount + 1;
             report.totalSales = report.totalSales + bill.total;
+            report.discountTotal = report.discountTotal + (bill.discountAmount || 0);
             servedPatientIds[bill.patientId] = true;
 
             for (let j = 0; j < bill.items.length; j++) {

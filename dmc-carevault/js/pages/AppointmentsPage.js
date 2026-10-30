@@ -171,6 +171,13 @@ class AppointmentsPage {
             }
         }
 
+        const missingList = [];
+        for (let i = 0; i < todayAppointments.length; i++) {
+            if (todayAppointments[i].status === "Missing") {
+                missingList.push(todayAppointments[i]);
+            }
+        }
+
         let html = '<div class="ready-bar"><div class="ready-bar-row">';
         if (waitingList.length === 0) {
             html += "<span>No patients waiting in the queue.</span>";
@@ -181,7 +188,16 @@ class AppointmentsPage {
             html += " <span>" + htmlHelper.escapeText(nextEntry.reason) + "</span>";
             html += " <small>(" + waitingList.length + " waiting)</small>";
         }
-        html += "</div></div>";
+        html += "</div>";
+        if (missingList.length > 0) {
+            const missingNames = [];
+            for (let i = 0; i < missingList.length; i++) {
+                missingNames.push("#" + missingList[i].queueNumber + " " + patientService.getPatientNameById(missingList[i].patientId));
+            }
+            html += '<div class="ready-bar-row"><small>Not here (skipped, they go back to their place when they arrive): <b>' +
+                htmlHelper.escapeText(missingNames.join(", ")) + "</b></small></div>";
+        }
+        html += "</div>";
         barElement.innerHTML = html;
     }
 
@@ -231,6 +247,17 @@ class AppointmentsPage {
                 html += '<button class="btn sm" data-step-id="' + id + '" data-step-status="' + nextStep.nextStatus + '">' +
                     nextStep.buttonText + "</button> ";
             }
+        }
+
+        // A waiting patient who is not around can be skipped, so the patients behind them are not stuck.
+        if (entry.status === "Waiting" && permissionService.userCan("queue.manage")) {
+            html += '<button class="btn sm ghost" data-step-id="' + id + '" data-step-status="Missing" ' +
+                'title="The patient is not here. The line moves on without them.">Not here</button> ';
+        }
+        // A missing patient who has arrived goes back to their old place in the line.
+        if (entry.status === "Missing" && permissionService.userCan("queue.manage")) {
+            html += '<button class="btn sm" data-step-id="' + id + '" data-step-status="Waiting" ' +
+                'title="The patient has arrived. They go ahead of everyone with a bigger queue number.">Back in line</button> ';
         }
 
         const isFinished = entry.status === "Completed" || entry.status === "Cancelled";
@@ -288,8 +315,18 @@ class AppointmentsPage {
 
     runQueueStep(entryId, nextStatus) {
         try {
+            const before = this.findEntryById(entryId);
+            const wasMissing = before !== null && before.status === "Missing";
+
             appointmentService.changeStatus(entryId, nextStatus);
-            notifier.showSuccess("Queue updated.");
+
+            if (nextStatus === "Missing") {
+                notifier.showWarning("Patient marked as not here. The next patient can be sent to the doctor.");
+            } else if (wasMissing && nextStatus === "Waiting") {
+                notifier.showSuccess("Patient is back in line, in their old place.");
+            } else {
+                notifier.showSuccess("Queue updated.");
+            }
             this.refreshTable();
         } catch (error) {
             notifier.showError(error.message);
