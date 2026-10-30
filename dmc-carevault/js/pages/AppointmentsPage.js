@@ -138,10 +138,17 @@ class AppointmentsPage {
             { title: "Doctor", getCellHtml: function (item) { return htmlHelper.escapeText(userService.getFullNameByUsername(item.doctorUsername)); } },
             { title: "Status", getCellHtml: function (item) { return htmlHelper.buildStatusBadge(item.status); } },
             { title: "Vitals", getCellHtml: function (item) {
-                if (!item.vitals) {
+                // Its own vital signs, or fresh ones taken earlier today for this patient.
+                const fresh = appointmentService.getFreshVitalsForEntry(item);
+                const vitals = fresh !== null ? fresh : item.vitals;
+                if (!vitals) {
                     return '<span class="badge pending">Not recorded</span>';
                 }
-                return '<span class="badge">Recorded</span> <small>BP ' + htmlHelper.escapeText(item.vitals.bloodPressure) + "</small>";
+                let fromEarlierNote = "";
+                if (fresh !== null && fresh !== item.vitals) {
+                    fromEarlierNote = ' <small>(from earlier)</small>';
+                }
+                return '<span class="badge">Recorded</span> <small>BP ' + htmlHelper.escapeText(vitals.bloodPressure) + "</small>" + fromEarlierNote;
             } },
             { title: "Time In", getCellHtml: function (item) { return dateHelper.formatTime(item.queuedAt); } },
             { title: "Time Started", getCellHtml: function (item) { return dateHelper.formatTime(item.startedAt); } },
@@ -215,12 +222,16 @@ class AppointmentsPage {
         return null;
     }
 
-    // Vital signs can be recorded (or changed) only before the patient is sent to the doctor.
+    // Vital signs can be recorded only before the patient is sent to the doctor,
+    // and only when no vital signs from the last 30 minutes exist for this patient.
     canRecordVitals(entry) {
         const isBeforeDoctor = entry.status === "Scheduled" ||
             entry.status === "Confirmed" ||
             entry.status === "Waiting";
-        return isBeforeDoctor && permissionService.userCan("vitals.record");
+        if (!isBeforeDoctor || !permissionService.userCan("vitals.record")) {
+            return false;
+        }
+        return appointmentService.getFreshVitalsForEntry(entry) === null;
     }
 
     // Only the buttons the current user may use are created.

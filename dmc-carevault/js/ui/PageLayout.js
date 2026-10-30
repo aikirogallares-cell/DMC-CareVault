@@ -22,10 +22,15 @@ class PageLayout {
     }
 
         show(contentBuilder) {
-        // 1. Nobody logged in -> go to the login page.
+        // 1. Nobody signed in on this tab -> go to the login page.
         const currentUser = authService.getCurrentUser();
         if (currentUser === null) {
             window.location.replace("../index.html");
+            return;
+        }
+
+        // 2. The server must be signed in as this same account. Otherwise this tab is signed out.
+        if (this.checkServerMatchesTab(currentUser) === false) {
             return;
         }
 
@@ -33,13 +38,13 @@ class PageLayout {
         const pageInfo = pageRegistry.findPageById(this.pageId);
         this.hasBellPanel = permissionService.userCan("billing.view");
 
-        // 2. Draw the sidebar and header.
+        // 3. Draw the sidebar and header.
         document.getElementById("app").innerHTML = this.buildLayoutHtml(currentUser, settings);
         this.connectLayoutButtons();
 
         const mainElement = document.getElementById("main");
 
-        // 3. Page-level permission check.
+        // 4. Page-level permission check.
         if (pageInfo === null || !this.userMayOpenPage(pageInfo)) {
             mainElement.innerHTML = this.buildAccessDeniedHtml(currentUser);
             auditLogService.recordAction("Access denied", "Tried to open page: " + this.pageId);
@@ -56,7 +61,7 @@ class PageLayout {
             mainElement.innerHTML = '<div class="err">This page could not be drawn. Press F12 and send the red error to the developer.</div>';
         }
 
-        // 4. Start the live alerts. Each one starts on its own, so a problem in one cannot stop the others.
+        // 5. Start the live alerts. Each one starts on its own, so a problem in one cannot stop the others.
         const layout = this;
         if (currentUser.role === "Doctor") {
             this.safeStart("patient-in-consultation alert", function () {
@@ -70,6 +75,34 @@ class PageLayout {
                 layout.startReadyDoctorWatch(currentUser);
             });
         }
+    }
+
+    // Asks the server which account it is signed in as. Returns "" when nobody is signed in.
+    getServerUsername() {
+        try {
+            return storageService.sendRequest("GET", "auth.php?action=me").user.username;
+        } catch (error) {
+            return "";
+        }
+    }
+
+    // The server keeps one login per browser. If it is signed in as a different account
+    // (or nobody), this tab is signed out so nothing is shown or saved under the wrong account.
+    // Returns true when the tab may continue.
+    checkServerMatchesTab(currentUser) {
+        const serverUsername = this.getServerUsername();
+        if (serverUsername === currentUser.username) {
+            return true;
+        }
+
+        authService.clearSession();
+        if (serverUsername === "") {
+            sessionStorage.setItem("dmcv2_flashMessage", "Your login has ended. Please log in again.");
+        } else {
+            sessionStorage.setItem("dmcv2_flashMessage", "Another account signed in on this browser. Please log in again.");
+        }
+        window.location.replace("../index.html");
+        return false;
     }
 
     // Starts one alert and writes any error to the Console instead of stopping the page.
@@ -157,37 +190,44 @@ class PageLayout {
     // Reads the saved data directly (not through the services), so the background refresh
     // does not reset the idle-logout timer.
     // awaitingPayment: today's visits the doctor finished and that have no paid bill yet, oldest first.
-    getBellData() {
-        const today = dateHelper.getTodayString();
-        const appointments = storageService.loadList("appointments");
-        const bills = storageService.loadList("bills");
+        getBellData() {
+        try {
+            const today = dateHelper.getTodayString();
+            const appointments = storageService.loadList("appointments");
+            const bills = storageService.loadList("bills");
 
-        const paidVisitIds = {};
-        for (let i = 0; i < bills.length; i++) {
-            if (bills[i].status === "Paid") {
-                paidVisitIds[bills[i].queueEntryId] = true;
+            const paidVisitIds = {};
+            for (let i = 0; i < bills.length; i++) {
+                if (bills[i].status === "Paid") {
+                    paidVisitIds[bills[i].queueEntryId] = true;
+                }
             }
+
+            let waitingCount = 0;
+            const awaitingPayment = [];
+            for (let i = 0; i < appointments.length; i++) {
+                const entry = appointments[i];
+                if (entry.date !== today) {
+                    continue;
+                }
+                if (entry.status === "Waiting") {
+                    waitingCount = waitingCount + 1;
+                }
+                if (entry.doctorFinishedAt && paidVisitIds[entry.id] !== true) {
+                    awaitingPayment.push(entry);
+                }
+            }
+
+            awaitingPayment.sort(function (first, second) {
+                return String(first.doctorFinishedAt).localeCompare(String(second.doctorFinishedAt));
+            });
+            return { waitingCount: waitingCount, awaitingPayment: awaitingPayment };
+        } catch (error) {
+            // The bills could not be read (for example, the server is signed in as a doctor).
+            // The page still opens, and the bell shows no notifications.
+            console.error("[bell] could not read notifications:", error);
+            return { waitingCount: 0, awaitingPayment: [] };
         }
-
-        let waitingCount = 0;
-        const awaitingPayment = [];
-        for (let i = 0; i < appointments.length; i++) {
-            const entry = appointments[i];
-            if (entry.date !== today) {
-                continue;
-            }
-            if (entry.status === "Waiting") {
-                waitingCount = waitingCount + 1;
-            }
-            if (entry.doctorFinishedAt && paidVisitIds[entry.id] !== true) {
-                awaitingPayment.push(entry);
-            }
-        }
-
-        awaitingPayment.sort(function (first, second) {
-            return String(first.doctorFinishedAt).localeCompare(String(second.doctorFinishedAt));
-        });
-        return { waitingCount: waitingCount, awaitingPayment: awaitingPayment };
     }
 
     buildBellHtml() {
@@ -825,8 +865,9 @@ class PageLayout {
             return [];
         }
     }
-        // The doctor presses "Done consulting" on the yellow bar.
-    // The visit is marked finished, the bar clears at once, and staff and admin get the pop-up.
+    // The doctor presses "Done consulting" on the yellow bar.
+    // The queue entry is finished, today's consultation record is marked Completed,
+    // staff and admin are notified, and the doctor is asked about a prescription.
     doctorFinishesPatient(patientId) {
         const currentUser = authService.getCurrentUser();
         if (currentUser === null) {
@@ -840,19 +881,67 @@ class PageLayout {
             return;
         }
 
+        let finishedEntry = null;
+        let completedRecords = 0;
         try {
-            const finishedEntry = appointmentService.finishConsultationFromDoctor(patientId);
-            if (finishedEntry === null) {
-                notifier.showWarning("This patient is no longer in consultation.");
-            } else {
-                notifier.showSuccess("Done consulting. Staff and admin have been notified.");
+            finishedEntry = appointmentService.finishConsultationFromDoctor(patientId);
+            if (finishedEntry !== null) {
+                completedRecords = consultationService.completeTodayConsultations(patientId);
             }
         } catch (error) {
             notifier.showError(error.message);
         }
 
-        // Refresh the bar now, so the patient's name disappears at once.
+        if (finishedEntry === null) {
+            notifier.showWarning("This patient is no longer in consultation.");
+        } else if (completedRecords > 0) {
+            notifier.showSuccess("Done consulting. The consultation record is marked Completed, and staff and admin have been notified.");
+        } else {
+            notifier.showWarning("Done consulting, but no consultation record was saved today for this patient. Staff and admin have been notified.");
+        }
+
+        // Tells the Consultations table, if it is open in this browser, to redraw.
+        window.dispatchEvent(new Event("consultationsChanged"));
+
+        // Ask about the prescription first. The bar check below sees the open dialog and waits.
+        if (finishedEntry !== null) {
+            this.askPrescriptionAfterConsultation(patientId);
+        }
         this.checkDoctorPatientAlert(currentUser);
+    }
+
+    // Shown right after a consultation is finished. The doctor decides whether to write a prescription.
+    askPrescriptionAfterConsultation(patientId) {
+        const layout = this;
+        const patientName = patientService.getPatientNameById(patientId);
+
+        let bodyHtml = '<p class="popup-lead">Does <b>' + htmlHelper.escapeText(patientName) +
+            "</b> need a prescription?</p>";
+        bodyHtml += '<div class="popup-actions">' +
+            '<button class="btn ghost" id="noPrescriptionButton">No Prescription</button>' +
+            '<button class="btn" id="writePrescriptionButton">Write Prescription</button></div>';
+
+        const dialog = new ModalDialog("Prescription", bodyHtml, {});
+        dialog.open();
+
+        const dialogElement = dialog.getElement();
+        dialogElement.querySelector("#noPrescriptionButton").addEventListener("click", function () {
+            layout.savePrescriptionChoice(patientId, "No");
+            dialog.close();
+            notifier.showSuccess("No prescription for this visit.");
+        });
+        dialogElement.querySelector("#writePrescriptionButton").addEventListener("click", function () {
+            layout.savePrescriptionChoice(patientId, "Yes");
+            window.location.href = "prescriptions.html?new=1&patient=" + encodeURIComponent(patientId);
+        });
+    }
+
+    savePrescriptionChoice(patientId, choice) {
+        try {
+            appointmentService.setPrescriptionChoice(patientId, choice);
+        } catch (error) {
+            notifier.showError(error.message);
+        }
     }
     markKeySeen(storageName, key) {
         const keys = this.loadSeenKeys(storageName);

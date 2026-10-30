@@ -1,7 +1,8 @@
 <?php
 /*
- * auth.php - login, logout and change password. Passwords are checked here on the
- * server with password_verify() against the bcrypt hashes in the `users` table.
+ * auth.php - login, logout, checking who is signed in, and change password.
+ * Passwords are checked here on the server with password_verify() against the
+ * bcrypt hashes in the `users` table.
  */
 require __DIR__ . '/config.php';
 
@@ -43,6 +44,15 @@ if ($action === 'logout') {
     $_SESSION = [];
     session_destroy();
     json_out(['ok' => true]);
+}
+
+// Tells the browser which account the server is signed in as.
+if ($action === 'me') {
+    $u = current_user();
+    if ($u === null) {
+        json_out(['message' => 'Please log in again.'], 401);
+    }
+    json_out(['user' => $u]);
 }
 
 if ($action === 'changePassword') {

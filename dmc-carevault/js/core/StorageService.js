@@ -2,8 +2,8 @@
  * StorageService.js
  * Purpose: the ONLY place that stores data.
  *
- * Lists in `serverLists` are now saved in the MySQL database through the PHP files in /api.
- * Everything else (appointments, vitals, bills, doctor availability, settings...) is still
+ * Lists in `serverLists` are saved in the MySQL database through the PHP files in /api.
+ * Everything else (appointments, vitals, doctor availability, settings...) is still
  * in the browser's localStorage until those services are moved to the database too.
  *
  * The other services did not have to change: loadList() and saveList() work the same.
@@ -14,7 +14,7 @@ class StorageService {
         this.keyPrefix = "dmcv2_";
 
         // These lists live in the database.
-        this.serverLists = ["users", "patients", "consultations", "prescriptions", "medications", "auditLogs"];
+            this.serverLists = ["users", "patients", "consultations", "prescriptions", "medications", "auditLogs", "bills", "appointments"];
 
         // A loaded list is reused for a few seconds so a page does not ask the server hundreds of times.
         this.cacheSeconds = 3;

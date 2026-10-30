@@ -39,7 +39,14 @@ class BillingPage {
 
     showPage() {
         // Creates bills for finished visits and adds prescriptions that are not on a bill yet.
-        billingService.syncBills();
+        try {
+            billingService.syncBills();
+        } catch (error) {
+            this.mainElement.innerHTML = '<h2>Billing</h2><div class="err">' +
+                htmlHelper.escapeText(error.message) +
+                " Close the other DMC tabs, then log in again as admin or staff in this browser.</div>";
+            return;
+        }
 
         let html = "<h2>Billing</h2>";
 

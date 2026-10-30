@@ -174,7 +174,8 @@ class AppointmentService {
             data.queuedAt = new Date().toISOString();
             data.startedAt = null;
             data.completedAt = null;
-            data.vitals = null;
+            // Vital signs taken in the last 30 minutes for this patient are reused, so staff are not asked again.
+            data.vitals = this.getRecentVitalsForPatient(data.patientId);
             delete data.time;
             savedAppointments.push(data);
             storageService.saveList("appointments", savedAppointments);
@@ -287,9 +288,14 @@ class AppointmentService {
             }
         }
 
-        // The vital signs must be recorded before the patient goes to the doctor.
-        if (newStatus === "In Consultation" && !appointment.vitals) {
-            throw new Error("Record the vital signs before sending the patient to the doctor.");
+        // The vital signs must be fresh (taken in the last 30 minutes) before the patient goes to the doctor.
+        // They are saved on this visit, so the doctor and the consultation form can see them.
+        if (newStatus === "In Consultation") {
+            const freshVitals = this.getFreshVitalsForEntry(appointment);
+            if (freshVitals === null) {
+                throw new Error("Record the vital signs before sending the patient to the doctor. Vital signs are only reused for 30 minutes.");
+            }
+            appointment.vitals = Object.assign({}, freshVitals);
         }
 
         // The clock time of each step is saved so the pages can show it.
@@ -449,6 +455,57 @@ class AppointmentService {
         }
         return null;
     }
+        // ----- Vital signs reuse: vital signs taken in the last 30 minutes are used, not measured again -----
+
+    getVitalsWindowMinutes() {
+        return 30;
+    }
+
+    // True when the vital signs were taken within the last 30 minutes.
+    isVitalsFresh(vitals) {
+        if (!vitals || !vitals.recordedAt) {
+            return false;
+        }
+        const recordedTime = new Date(vitals.recordedAt).getTime();
+        if (isNaN(recordedTime)) {
+            return false;
+        }
+        const minutesAgo = (Date.now() - recordedTime) / 60000;
+        return minutesAgo <= this.getVitalsWindowMinutes();
+    }
+
+    // The newest fresh vital signs of this patient from today's queue entries.
+    // Returns a copy, or null when there are none.
+    getRecentVitalsForPatient(patientId) {
+        const today = dateHelper.getTodayString();
+        const savedAppointments = storageService.loadList("appointments");
+        let newest = null;
+        let newestTime = 0;
+
+        for (let i = 0; i < savedAppointments.length; i++) {
+            const visit = savedAppointments[i];
+            if (visit.patientId !== patientId || visit.date !== today || !this.isVitalsFresh(visit.vitals)) {
+                continue;
+            }
+            const visitTime = new Date(visit.vitals.recordedAt).getTime();
+            if (newest === null || visitTime > newestTime) {
+                newest = visit.vitals;
+                newestTime = visitTime;
+            }
+        }
+        return newest === null ? null : Object.assign({}, newest);
+    }
+
+    // The vital signs that apply to this queue entry right now: its own if they are fresh,
+    // otherwise fresh vital signs of the same patient from an earlier visit today.
+    // Returns null when staff must record the vital signs.
+    getFreshVitalsForEntry(entry) {
+        if (this.isVitalsFresh(entry.vitals)) {
+            return entry.vitals;
+        }
+        return this.getRecentVitalsForPatient(entry.patientId);
+    }
+
     getNextQueueNumber(appointmentList, date) {
         let highestNumber = 0;
         for (let i = 0; i < appointmentList.length; i++) {
