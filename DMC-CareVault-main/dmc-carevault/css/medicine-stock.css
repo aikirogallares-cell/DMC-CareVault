@@ -1,0 +1,12 @@
+/* ---- Medicine Stock Monitoring (dashboard section) ---- */
+/* Uses the colors from style.css. The other badge colors (expired, out-of-stock, low-stock,
+   expiring-soon) already exist in style.css. */
+
+.stock-hint{margin:0 0 14px;color:var(--tx2);font-size:12px}
+.stock-note{display:block;margin-top:2px;color:var(--red);font-size:11px}
+
+/* Critically low is red like "out of stock", but bold so it can be told apart. */
+.badge.critically-low{background:#fdecea;color:var(--red);font-weight:600;border:1px solid var(--red)}
+
+/* Expiring later and in stock use the normal green badge. "Not Set" is grey. */
+.badge.not-set{background:#eef2f7;color:#445}

@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Login - DMC CareVault</title>
+    <link rel="stylesheet" href="css/style.css">
+    <link rel="stylesheet" href="css/login.css">
+</head>
+<body class="login">
+    <div class="box">
+        <div class="logo">✚</div>
+        <h1>DMC CareVault</h1>
+        <p>Patient Records &amp; Clinic Management System</p>
+        <p class="clinic">Dumaual Medical Clinic</p>
+
+        <div class="fg">
+            <label for="usernameInput">Username</label>
+            <input id="usernameInput" autocomplete="username" autofocus>
+        </div>
+        <div class="fg">
+            <label for="passwordInput">Password</label>
+            <div class="pw">
+                <input id="passwordInput" type="password" autocomplete="current-password">
+                <button type="button" id="togglePasswordButton">Show</button>
+            </div>
+        </div>
+        <div class="err" id="loginError" role="alert"></div>
+        <button class="btn" id="loginButton">Login</button>
+    </div>
+    <div id="toasts"></div>
+
+    <script src="js/core/PasswordHasher.js"></script>
+    <script src="js/core/StorageService.js"></script>
+    <script src="js/core/DateHelper.js"></script>
+    <script src="js/core/HtmlHelper.js"></script>
+    <script src="js/core/Validator.js"></script>
+    <script src="js/core/SampleData.js"></script>
+    <script src="js/services/AuditLogService.js"></script>
+    <script src="js/services/AuthService.js"></script>
+    <script src="js/ui/Notifier.js"></script>
+    <script src="js/pages/LoginPage.js"></script>
+</body>
+</html>

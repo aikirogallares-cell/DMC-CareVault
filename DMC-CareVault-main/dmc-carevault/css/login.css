@@ -1,0 +1,6 @@
+body.login{min-height:100vh;display:flex;align-items:center;justify-content:center;background:#fff;padding:16px}
+.box{width:100%;max-width:390px;border:1px solid var(--bd);border-radius:12px;padding:30px;box-shadow:0 6px 24px rgba(27,94,32,.08)}
+.logo{width:46px;height:46px;border-radius:12px;background:var(--gl);color:var(--g);font-size:26px;display:flex;align-items:center;justify-content:center;margin:0 auto 10px}
+.box h1{text-align:center;font-size:24px}.box p{text-align:center;margin:4px 0;color:var(--tx2)}.box .clinic{color:var(--g);font-weight:600;margin-bottom:20px}
+.box .fg{margin-bottom:14px}.pw{position:relative}.pw button{position:absolute;right:6px;top:5px;border:0;background:none;color:var(--g);cursor:pointer;padding:4px 6px}
+.box .btn{width:100%;padding:10px}
