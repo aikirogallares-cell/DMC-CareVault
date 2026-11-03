@@ -462,12 +462,15 @@ class BillingPage {
 
     // ---------- Receipt ----------
 
-    // isJustPaid is true right after a payment. Closing that receipt takes staff to the Queuing page,
-    // so they can see which patient is next. An old receipt opened from the bill list only closes.
+    // isJustPaid is true right after a payment. The receipt then offers two choices:
+    // stay on Billing, or go back to Queuing. Closing the receipt with X keeps staff on Billing.
+    // An old receipt opened from the bill list has no choices and only closes.
     showReceipt(bill, isJustPaid) {
         let bodyHtml = this.buildReceiptHtml(bill);
         if (isJustPaid === true) {
-            bodyHtml += '<div class="popup-actions"><button class="btn" id="receiptQueueButton">Back to Queuing</button></div>';
+            bodyHtml += '<div class="popup-actions">' +
+                '<button class="btn ghost" id="receiptStayButton">Stay in Billing</button>' +
+                '<button class="btn" id="receiptQueueButton">Back to Queuing</button></div>';
         }
 
         const dialog = new ModalDialog("Receipt - " + bill.id, bodyHtml, {});
@@ -475,12 +478,12 @@ class BillingPage {
 
         if (isJustPaid === true) {
             const dialogElement = dialog.getElement();
-            const goToQueue = function () {
+            dialogElement.querySelector("#receiptStayButton").addEventListener("click", function () {
+                dialog.close();
+            });
+            dialogElement.querySelector("#receiptQueueButton").addEventListener("click", function () {
                 window.location.href = "appointments.html";
-            };
-            dialogElement.querySelector("#receiptQueueButton").addEventListener("click", goToQueue);
-            // The X button does the same, so every payment ends on the Queuing page.
-            dialogElement.querySelector("#dialogCloseButton").addEventListener("click", goToQueue);
+            });
         }
     }
 

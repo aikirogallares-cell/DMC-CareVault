@@ -270,6 +270,10 @@ class AppointmentsPage {
             html += '<button class="btn sm" data-step-id="' + id + '" data-step-status="Waiting" ' +
                 'title="The patient has arrived. They go ahead of everyone with a bigger queue number.">Back in line</button> ';
         }
+        
+        if (entry.status !== "Cancelled" && permissionService.userCan("appointments.view")) {
+            html += '<button class="btn sm ghost" data-result="' + id + '">Results</button> ';
+        }
 
         const isFinished = entry.status === "Completed" || entry.status === "Cancelled";
         if (!isFinished && permissionService.userCan("appointments.manage")) {
@@ -290,6 +294,19 @@ class AppointmentsPage {
     }
 
     handleTableButtonClick(event) {
+
+        const resultButton = event.target.closest("button[data-result]");
+        if (resultButton !== null) {
+            const page = this;
+            const resultEntry = this.findEntryById(resultButton.getAttribute("data-result"));
+            if (resultEntry !== null) {
+                testResultService.openDialog(resultEntry, function () {
+                    page.refreshTable();
+                });
+            }
+            return;
+        }
+
         const vitalsButton = event.target.closest("button[data-vitals]");
         if (vitalsButton !== null) {
             this.openVitalsForm(vitalsButton.getAttribute("data-vitals"));

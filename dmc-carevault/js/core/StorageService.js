@@ -14,7 +14,7 @@ class StorageService {
         this.keyPrefix = "dmcv2_";
 
         // These lists live in the database.
-            this.serverLists = ["users", "patients", "consultations", "prescriptions", "medications", "auditLogs", "bills", "appointments"];
+        this.serverLists = ["users", "patients", "consultations", "prescriptions", "medications", "auditLogs", "bills", "appointments", "testResults"];
 
         // A loaded list is reused for a few seconds so a page does not ask the server hundreds of times.
         this.cacheSeconds = 3;

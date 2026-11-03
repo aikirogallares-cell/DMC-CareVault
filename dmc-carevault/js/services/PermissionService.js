@@ -12,7 +12,7 @@ class PermissionService {
             Admin: [
                 "dashboard.admin",
                 "patients.view", "patients.create", "patients.edit", "patients.archive", "patients.medical",
-                "appointments.view", "appointments.manage", "queue.manage", "vitals.record",
+                "appointments.view", "appointments.manage", "queue.manage", "vitals.record", "results.record",
                 "consultations.view", "history.view", "prescriptions.view",
                 "medications.view", "medications.manage",
                 "billing.view", "billing.collect", "billing.reports", "billing.prices",
@@ -21,7 +21,7 @@ class PermissionService {
             Staff: [
                 "dashboard.staff",
                 "patients.view", "patients.create", "patients.edit",
-                "appointments.view", "appointments.manage", "queue.manage", "vitals.record",
+                "appointments.view", "appointments.manage", "queue.manage", "vitals.record", "results.record",
                 "medications.view", "medications.manage",
                 "billing.view", "billing.collect"
             ],

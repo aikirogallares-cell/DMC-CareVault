@@ -17,11 +17,13 @@ $readers = [
     'users' => 'read_users', 'patients' => 'read_patients', 'consultations' => 'read_consultations',
     'prescriptions' => 'read_prescriptions', 'medications' => 'read_medications', 'bills' => 'read_bills',
     'appointments' => 'read_appointments', 'auditLogs' => 'read_audit_logs',
+    'testResults' => 'read_test_results',
 ];
 // Who may WRITE each list (the server repeats the permission checks of the JavaScript).
 $writers = [
     'users' => ['Admin'], 'patients' => ['Admin', 'Staff', 'Doctor'], 'consultations' => ['Doctor'],
     'prescriptions' => ['Doctor'], 'medications' => ['Admin', 'Staff'], 'bills' => ['Admin', 'Staff'],
+    'testResults' => ['Admin', 'Staff'],
     'appointments' => ['Admin', 'Staff', 'Doctor'],
 ];
 $noPermission = ['message' => 'You do not have permission to perform this action.'];
@@ -772,4 +774,64 @@ function read_audit_logs(array $user): array {
             'role' => $r['role'] ?? '', 'action' => $r['action_name'], 'details' => $r['details'] ?? ''];
     }
     return $list;
+}
+/* ================= test results (text only) ================= */
+
+function read_test_results(array $user): array {
+    $rows = db()->query('SELECT * FROM test_results ORDER BY recorded_at DESC, id DESC')->fetchAll();
+    $list = [];
+    foreach ($rows as $r) {
+        $list[] = [
+            'id' => $r['id'], 'queueEntryId' => $r['queue_entry_id'], 'patientId' => $r['patient_id'],
+            'testName' => $r['test_name'], 'resultText' => $r['result_text'],
+            'recordedBy' => $r['recorded_by'], 'recordedAt' => date('c', strtotime($r['recorded_at'])),
+            'updatedBy' => $r['updated_by'] ?? '',
+            'updatedAt' => $r['updated_at'] ? date('c', strtotime($r['updated_at'])) : '',
+        ];
+    }
+    return $list;
+}
+
+function save_testResults(PDO $pdo, array $t, bool $isNew, array $user): void {
+    $id = need(sv($t, 'id'), 'Result ID');
+    $resultText = need(sv($t, 'resultText'), 'Result');
+    if (mb_strlen($resultText) > 2000) {
+        throw new UserError('Result is too long (2000 characters at most).');
+    }
+
+    if ($isNew) {
+        $testName = need(sv($t, 'testName'), 'Test name');
+        if (mb_strlen($testName) > 100) {
+            throw new UserError('Test name is too long (100 characters at most).');
+        }
+        $queueId = need(sv($t, 'queueEntryId'), 'Queue entry');
+
+        // The patient comes from the queue entry, so a result always belongs to the right patient.
+        $st = $pdo->prepare('SELECT patient_id FROM queue_entries WHERE id = ?');
+        $st->execute([$queueId]);
+        $patientId = $st->fetchColumn();
+        if ($patientId === false) {
+            throw new UserError('Queue entry not found.');
+        }
+
+        $pdo->prepare('INSERT INTO test_results (id, queue_entry_id, patient_id, test_name, result_text, recorded_by, recorded_at) VALUES (?, ?, ?, ?, ?, ?, NOW())')
+            ->execute([$id, $queueId, $patientId, $testName, $resultText, $user['username']]);
+        log_action($user['username'], $user['role'], 'Test result recorded', $id . ' (' . $testName . ')');
+        return;
+    }
+
+    // Corrections: only the text, and only on the day the result was recorded.
+    $st = $pdo->prepare('SELECT recorded_at FROM test_results WHERE id = ?');
+    $st->execute([$id]);
+    $recordedAt = $st->fetchColumn();
+    if ($recordedAt === false) {
+        throw new UserError('Test result not found.');
+    }
+    if (substr($recordedAt, 0, 10) !== date('Y-m-d')) {
+        throw new UserError('This result was recorded on an earlier day, so it can no longer be changed.');
+    }
+
+    $pdo->prepare('UPDATE test_results SET result_text = ?, updated_by = ?, updated_at = NOW() WHERE id = ?')
+        ->execute([$resultText, $user['username'], $id]);
+    log_action($user['username'], $user['role'], 'Test result changed', $id);
 }
