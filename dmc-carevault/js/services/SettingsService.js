@@ -1,21 +1,43 @@
 /*
  * SettingsService.js
- * Purpose: the system name and clinic name shown on every page,
+ * Purpose: the clinic details shown on every page and printed on prescriptions,
  * and the password change that any logged-in user can do.
  *
- * TO CHANGE THE CLINIC NAME OR SYSTEM NAME, EDIT THE TWO LINES BELOW AND SAVE THE FILE.
- * The names come from this file every time a page loads, so older saved values are ignored.
+ * TO CHANGE THE CLINIC DETAILS, EDIT THE VALUES BELOW AND SAVE THE FILE.
  */
 const appSettings = {
     systemName: "DMC CareVault",
-    clinicName: "Dumaual Medical Clinic"
+    clinicName: "Dumaual Medical Clinic",
+    clinicAddress: "2164 Primo Rivera St., Brgy. La Paz, Makati City",
+    clinicPhone: "Tel. No.: 8890-1515 / 8401-2996",
+    clinicHours: ["Clinic Hours: Monday – Friday, 8:00 am – 4:00 pm", "Saturday, 8:00 am – 12:00 pm"],
+    // The names at the top of the prescription pad. "bold" and "large" change how a line looks.
+    letterhead: [
+        { text: "MA. THERESA J. DUMAUAL, M.D., CFP., C.M.A.", bold: true },
+        { text: "CARL MARTIN J. DUMAUAL, M.D.", bold: true },
+        { text: "FAMILY PHYSICIAN" },
+        { text: "LOVELY KIM CO - DUMAUAL, M.D.", bold: true, large: true },
+        { text: "DIPLOMATE, INTERNAL MEDICINE" }
+    ],
+    // The verse printed at the bottom of each prescription.
+    prescriptionFooterVerse: [
+        "“Heal me, Lord, and I will be healed,",
+        "Save and I will be saved”",
+        "For You are the one I praise”",
+        "Jeremiah 17:14"
+    ]
 };
 
 class SettingsService {
     getSettings() {
         return {
             systemName: appSettings.systemName,
-            clinicName: appSettings.clinicName
+            clinicName: appSettings.clinicName,
+            clinicAddress: appSettings.clinicAddress,
+            clinicPhone: appSettings.clinicPhone,
+            clinicHours: appSettings.clinicHours,
+            letterhead: appSettings.letterhead,
+            prescriptionFooterVerse: appSettings.prescriptionFooterVerse
         };
     }
 

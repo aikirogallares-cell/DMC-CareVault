@@ -1058,7 +1058,7 @@ class PageLayout {
 
         let entry = this.findEntryInList(entries, currentUser.username);
         if (entry === null) {
-            entry = { doctorUsername: currentUser.username, isReady: false, readyAt: null, updatedAt: null };
+            entry = { id: currentUser.username, doctorUsername: currentUser.username, isReady: false, readyAt: null, updatedAt: null };
             entries.push(entry);
         }
 

@@ -88,15 +88,45 @@ class PrescriptionsPage {
         return html;
     }
 
-    // One row = one medicine. The name box is free text with suggestions from the medicine list.
+    // Builds the options of a drop-down. The first option is an empty "Choose" line.
+    buildOptionsHtml(options) {
+        let html = '<option value="">Choose...</option>';
+        for (let i = 0; i < options.length; i++) {
+            html += '<option value="' + htmlHelper.escapeText(options[i]) + '">' + htmlHelper.escapeText(options[i]) + "</option>";
+        }
+        return html;
+    }
+
+    // One row = one medicine. Frequency and instructions are chosen from lists,
+    // so the printed prescription reads the same way every time.
     buildMedicineRowHtml() {
+        const frequencyOptions = [
+            "Once a day - morning",
+            "Once a day - noon",
+            "Once a day - night",
+            "Twice a day - morning and night",
+            "Three times a day - morning, noon and night",
+            "Every 4 hours",
+            "Every 6 hours",
+            "Every 8 hours",
+            "Only when needed"
+        ];
+        const instructionOptions = [
+            "Take with food",
+            "Take after food",
+            "Take before food",
+            "Take on an empty stomach",
+            "Take at bedtime",
+            "Take as directed"
+        ];
+
         let html = '<div class="medrow">';
         html += '<input data-field="medicine" list="medicineSuggestions" placeholder="Type medicine name" autocomplete="off">';
-        html += '<input data-field="dosage" placeholder="Dosage">';
-        html += '<input data-field="frequency" placeholder="Frequency">';
-        html += '<input data-field="duration" placeholder="Duration">';
+        html += '<input data-field="dosage" placeholder="e.g. 500 mg">';
+        html += '<select data-field="frequency">' + this.buildOptionsHtml(frequencyOptions) + "</select>";
+        html += '<input data-field="duration" placeholder="e.g. 7 days">';
         html += '<input data-field="quantity" type="number" min="1" step="1" placeholder="Qty">';
-        html += '<input data-field="instructions" placeholder="Instructions">';
+        html += '<select data-field="instructions">' + this.buildOptionsHtml(instructionOptions) + "</select>";
         html += '<button class="btn sm danger" type="button" data-remove-row="1">×</button></div>';
         return html;
     }
@@ -110,11 +140,19 @@ class PrescriptionsPage {
             { name: "date", label: "Date", type: "date", isRequired: true, defaultValue: dateHelper.getTodayString() }
         ];
 
-        let bodyHtml = formBuilder.buildFormHtml(topFields, { patientId: preselectedPatientId || "" });
+        // Two columns: the prescription form on the left, the previous test results on the right.
+        let bodyHtml = '<div class="rx-layout" id="rxLayout"><div class="rx-main">';
+        bodyHtml += '<div class="toolbar"><span class="sp"></span>';
+        bodyHtml += '<button class="btn sm ghost" type="button" id="rxToggleButton">Hide previous results</button></div>';
+        bodyHtml += formBuilder.buildFormHtml(topFields, { patientId: preselectedPatientId || "" });
         bodyHtml += '<h4 style="color:var(--g)">Medicines</h4>';
         bodyHtml += '<div id="medicineRows">' + this.buildMedicineRowHtml() + "</div>";
         bodyHtml += '<button class="btn sm ghost" type="button" id="addMedicineButton">+ Add medicine</button>';
         bodyHtml += this.buildSuggestionListHtml();
+        bodyHtml += "</div>";
+        bodyHtml += '<aside class="rx-side"><h4 style="color:var(--g);margin:0 0 8px">Previous test results</h4>' +
+            '<div id="rxResultsList"></div></aside>';
+        bodyHtml += "</div>";
 
         const dialog = new ModalDialog("New Prescription", bodyHtml, {
             isWide: true,
@@ -126,8 +164,11 @@ class PrescriptionsPage {
         dialog.open();
 
         const dialogElement = dialog.getElement();
+        dialogElement.querySelector(".modal").classList.add("rx-wide");
+
         // Starts the type-to-search patient box.
         formBuilder.connectFields(dialogElement, topFields);
+
         dialogElement.querySelector("#addMedicineButton").addEventListener("click", function () {
             dialogElement.querySelector("#medicineRows").insertAdjacentHTML("beforeend", page.buildMedicineRowHtml());
         });
@@ -140,7 +181,58 @@ class PrescriptionsPage {
             if (event.target.getAttribute("data-field") === "medicine") {
                 page.fillDosageFromListedMedicine(event.target);
             }
+            // The patient changed: show that patient's results.
+            if (event.target.id === "field_patientId") {
+                page.refreshResultsPanel(dialogElement);
+            }
         });
+
+        // Hide or show the results panel. The choice is remembered for this browser tab.
+        const layout = dialogElement.querySelector("#rxLayout");
+        const toggleButton = dialogElement.querySelector("#rxToggleButton");
+        const applyPanelState = function (hidden) {
+            layout.classList.toggle("rx-hidden", hidden);
+            toggleButton.textContent = hidden ? "Show previous results" : "Hide previous results";
+            sessionStorage.setItem("dmcv2_rxPanelHidden", hidden ? "1" : "0");
+        };
+        applyPanelState(sessionStorage.getItem("dmcv2_rxPanelHidden") === "1");
+        toggleButton.addEventListener("click", function () {
+            applyPanelState(!layout.classList.contains("rx-hidden"));
+        });
+
+        page.refreshResultsPanel(dialogElement);
+    }
+
+    // Fills the results panel for the patient chosen in the form.
+    refreshResultsPanel(dialogElement) {
+        const list = dialogElement.querySelector("#rxResultsList");
+        const patientId = dialogElement.querySelector("#field_patientId").value;
+
+        if (patientId === "") {
+            list.innerHTML = '<div class="empty">Choose a patient to see their test results.</div>';
+            return;
+        }
+        list.innerHTML = this.buildResultsListHtml(patientId);
+    }
+
+    // One block per result: test name, when and by whom it was recorded, and the result text.
+    buildResultsListHtml(patientId) {
+        const safe = htmlHelper.escapeText;
+        const results = testResultService.getResultsForPatient(patientId);
+
+        if (results.length === 0) {
+            return '<div class="empty">No test results for this patient yet.</div>';
+        }
+
+        let html = "";
+        for (let i = 0; i < results.length; i++) {
+            const result = results[i];
+            html += '<div class="rx-result"><b>' + safe(result.testName) + "</b><br>" +
+                "<small>" + safe(dateHelper.formatDateTime(result.recordedAt)) + " by " +
+                safe(userService.getFullNameByUsername(result.recordedBy)) + "</small>" +
+                "<p>" + safe(result.resultText) + "</p></div>";
+        }
+        return html;
     }
 
     // If the typed name is exactly a medicine in the list, fill the dosage box with its strength.
@@ -207,33 +299,125 @@ class PrescriptionsPage {
         }
     }
 
+    // Looks up the prescription details (Lic, PTR, S2, TIN, DEA, NPI) of the doctor who wrote the prescription.
+    getDoctorProfile(doctorUsername) {
+        const profiles = storageService.loadList("doctorProfiles");
+        for (let i = 0; i < profiles.length; i++) {
+            if (profiles[i].doctorUsername === doctorUsername) {
+                return profiles[i];
+            }
+        }
+        return {};
+    }
+
+    // The printed prescription, laid out like the clinic's paper pad.
     buildPrintableHtml(prescription) {
         const patient = patientService.getPatientById(prescription.patientId);
         const settings = settingsService.getSettings();
+        const profile = this.getDoctorProfile(prescription.doctorUsername);
+        const doctorName = userService.getFullNameByUsername(prescription.doctorUsername);
         const safe = htmlHelper.escapeText;
 
-        let html = "<html><head><title>Prescription " + safe(prescription.id) + "</title>";
-        html += "<style>body{font-family:Arial;padding:40px;color:#222}h1{color:#1B5E20;margin:0}";
-        html += "hr{border:0;border-top:2px solid #2E7D32}table{width:100%;border-collapse:collapse;margin-top:14px}";
-        html += "td,th{border:1px solid #ccc;padding:8px;text-align:left}.signature{margin-top:70px;text-align:right}</style></head><body>";
-        html += "<h1>" + safe(settings.clinicName) + "</h1><p>" + safe(settings.systemName) + " - Prescription</p><hr>";
-        html += "<p><b>Patient:</b> " + safe(htmlHelper.getFullName(patient)) + " (" + safe(patient.id) + ")";
-        html += " &nbsp; <b>Age:</b> " + safe(dateHelper.getAgeText(patient.birthDate));
-        html += " &nbsp; <b>Date:</b> " + safe(prescription.date) + "</p>";
-        html += "<table><tr><th>Medicine</th><th>Dosage</th><th>Frequency</th><th>Duration</th><th>Qty</th><th>Instructions</th></tr>";
+        // Shows a value underlined. An empty value leaves a blank line to write on.
+        const fill = function (value, extraClass) {
+            const isEmpty = value === undefined || value === null || String(value).trim() === "";
+            const shown = isEmpty ? "&nbsp;" : safe(value);
+            return '<span class="fill ' + (extraClass || "") + '">' + shown + "</span>";
+        };
 
-        for (let i = 0; i < prescription.medicines.length; i++) {
-            const medicine = prescription.medicines[i];
-            html += "<tr><td>" + safe(medicine.name) + "</td><td>" + safe(medicine.dosage) + "</td><td>" +
-                safe(medicine.frequency) + "</td><td>" + safe(medicine.duration) + "</td><td>" + safe(medicine.quantity) + "</td><td>" + safe(medicine.instructions) + "</td></tr>";
+        let letterhead = "";
+        for (let i = 0; i < settings.letterhead.length; i++) {
+            const line = settings.letterhead[i];
+            letterhead += '<div class="' + (line.bold ? "bold " : "") + (line.large ? "large" : "") + '">' +
+                safe(line.text) + "</div>";
         }
 
-        html += "</table><div class=\"signature\">______________________<br>";
-        html += safe(userService.getFullNameByUsername(prescription.doctorUsername)) + "</div>";
+        let hours = "";
+        for (let i = 0; i < settings.clinicHours.length; i++) {
+            hours += "<div>" + safe(settings.clinicHours[i]) + "</div>";
+        }
+
+        let medicines = "";
+        for (let i = 0; i < prescription.medicines.length; i++) {
+            const m = prescription.medicines[i];
+            medicines += '<div class="med"><div class="med-name">' + (i + 1) + ". " + safe(m.name) + "</div>" +
+                '<div class="med-line">Dosage: ' + safe(m.dosage || "-") + " &nbsp;&nbsp; Qty: " + safe(m.quantity || "-") + "</div>" +
+                '<div class="med-line">Take: ' + safe(m.frequency || "-") + " &nbsp;&nbsp; For: " + safe(m.duration || "-") + "</div>" +
+                (m.instructions ? '<div class="med-line">' + safe(m.instructions) + "</div>" : "") + "</div>";
+        }
+
+        let verse = "";
+        for (let i = 0; i < settings.prescriptionFooterVerse.length; i++) {
+            verse += safe(settings.prescriptionFooterVerse[i]) + "<br>";
+        }
+
+        const patientName = patient === null ? "" : htmlHelper.getFullName(patient);
+        const patientAge = patient === null ? "" : dateHelper.getAgeText(patient.birthDate);
+        const patientSex = patient === null ? "" : patient.gender;
+        const patientAddress = patient === null ? "" : patient.address;
+
+        let html = "<html><head><title>Prescription " + safe(prescription.id) + "</title>";
+        html += "<style>" + this.printStyles() + "</style></head><body>";
+        html += '<div class="sheet">';
+
+        html += '<div class="clinic">' + letterhead;
+        html += '<div class="clinic-name">' + safe(settings.clinicName.toUpperCase()) + "</div>";
+        html += "<div>" + safe(settings.clinicAddress) + "</div>";
+        html += "<div>" + safe(settings.clinicPhone) + "</div>" + hours + "</div>";
+        html += '<div class="rule"></div>';
+
+        html += '<div class="row"><span class="lbl">Patient\'s Name:</span> ' + fill(patientName, "wide") +
+            ' <span class="lbl">Age:</span> ' + fill(patientAge, "narrow") +
+            ' <span class="lbl">Sex:</span> ' + fill(patientSex, "narrow") + "</div>";
+        html += '<div class="row"><span class="lbl">Address:</span> ' + fill(patientAddress, "wide") +
+            ' <span class="lbl">Date:</span> ' + fill(prescription.date, "narrow") + "</div>";
+
+        html += '<div class="rx">Rx</div>';
+        html += medicines;
+        html += '<div class="next">Your next visit is on: ' + fill("", "wide") + "</div>";
+
+        html += '<div class="sign"><div class="sign-line"></div>';
+        html += '<div class="sign-name">' + safe(doctorName) + "</div>";
+        html += '<div class="ids">';
+        html += "<div>Lic No.: " + fill(profile.licenseNo, "narrow") + "</div>";
+        html += "<div>PTR No.: " + fill(profile.ptrNo, "narrow") + "</div>";
+        html += "<div>S2 No.: " + fill(profile.s2No, "narrow") + "</div>";
+        html += "<div>TIN: " + fill(profile.tin, "narrow") + "</div>";
+        html += "<div>DEA No.: " + fill(profile.deaNo, "narrow") + "</div>";
+        html += "<div>NPI No.: " + fill(profile.npiNo, "narrow") + "</div>";
+        html += "</div></div>";
+
+        html += '<div class="verse">' + verse + "</div>";
+        html += "</div>";
         html += "<script>window.print();<\/script></body></html>";
         return html;
     }
 
+    // The printed page: A4, margins, letterhead, underlined fields and the signature block.
+    printStyles() {
+        return "@page{size:A4;margin:14mm}" +
+            "body{font-family:Arial,Helvetica,sans-serif;color:#111;margin:0}" +
+            ".sheet{position:relative;min-height:265mm}" +
+            ".clinic{text-align:center;font-size:12px;line-height:1.4}" +
+            ".bold{font-weight:bold}.large{font-size:15px}" +
+            ".clinic-name{font-weight:bold;font-size:14px;margin-top:6px}" +
+            ".rule{border-top:3px solid #333;margin:12px 0 14px}" +
+            ".row{margin:8px 0;font-size:13px}" +
+            ".lbl{color:#333}" +
+            ".fill{display:inline-block;border-bottom:1px solid #333;padding:0 4px;margin:0 12px 0 4px}" +
+            ".fill.wide{min-width:260px}.fill.narrow{min-width:110px}" +
+            ".rx{font-family:Georgia,'Times New Roman',serif;font-size:60px;font-weight:bold;font-style:italic;margin:18px 0 8px}" +
+            ".med{margin:0 0 12px;font-size:13px}" +
+            ".med-name{font-weight:bold;font-size:14px}" +
+            ".med-line{margin-left:18px;margin-top:2px}" +
+            ".next{margin-top:26px;font-size:13px}" +
+            ".sign{position:absolute;right:0;bottom:70px;width:300px;font-size:12px;text-align:center}" +
+            ".sign-line{border-top:1px solid #333;margin-top:40px}" +
+            ".sign-name{font-weight:bold;margin-top:2px}" +
+            ".ids{text-align:left;margin-top:8px}.ids div{margin-top:3px}.ids .fill{min-width:150px}" +
+            ".verse{position:absolute;left:0;right:0;bottom:0;text-align:center;font-size:11px;font-style:italic}";
+    }
+    
     printPrescription(prescription) {
         const printWindow = window.open("", "_blank");
 

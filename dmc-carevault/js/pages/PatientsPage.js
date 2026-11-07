@@ -317,7 +317,7 @@ class PatientsPage {
         if (permissionService.userCan("prescriptions.view")) {
             tabNames.push("Prescriptions");
         }
-        tabNames.push("Appointments");
+        tabNames.push("Visits");
         return tabNames;
     }
 
@@ -363,7 +363,7 @@ class PatientsPage {
             contentHtml = this.buildMedicalHistoryTab(patient);
         } else if (tabName === "Prescriptions") {
             contentHtml = this.buildPrescriptionsTab(patient);
-        } else if (tabName === "Appointments") {
+        } else if (tabName === "Visits") {
             contentHtml = this.buildAppointmentsTab(patient);
         }
 
@@ -404,6 +404,7 @@ class PatientsPage {
         if (permissionService.userCan("patients.medical")) {
             html += this.buildDetailRow("Medical Conditions", patient.medicalConditions);
             html += this.buildDetailRow("Current Medications", patient.currentMedications);
+            html += "<dt>Medicines being taken now</dt><dd>" + medicalRecordService.buildActiveMedicinesHtml(patient.id) + "</dd>";
         }
 
         html += "</dl>";
@@ -411,34 +412,37 @@ class PatientsPage {
     }
 
     buildMedicalHistoryTab(patient) {
-        const history = consultationService.getHistoryForPatient(patient.id);
-
-        const columns = [
-            { title: "Date", getCellHtml: function (item) { return item.date; } },
-            { title: "Doctor", getCellHtml: function (item) { return htmlHelper.escapeText(userService.getFullNameByUsername(item.doctorUsername)); } },
-            { title: "Chief Complaint", getCellHtml: function (item) { return htmlHelper.escapeText(item.complaint); } },
-            { title: "Diagnosis", getCellHtml: function (item) { return htmlHelper.escapeText(item.diagnosis); } },
-            { title: "Treatment", getCellHtml: function (item) { return htmlHelper.escapeText(item.treatment); } }
-        ];
-        return tableBuilder.buildTableHtml(columns, history, "No medical history yet.");
+        return medicalRecordService.buildDetailedHistoryHtml(patient.id);
     }
 
+    // One row per medicine: date, medicine, dosage, frequency, duration, quantity, instructions, doctor.
     buildPrescriptionsTab(patient) {
         const prescriptions = prescriptionService.getPrescriptionsForPatient(patient.id);
+        const safe = htmlHelper.escapeText;
+
+        const rows = [];
+        for (let i = 0; i < prescriptions.length; i++) {
+            for (let j = 0; j < prescriptions[i].medicines.length; j++) {
+                rows.push({
+                    date: prescriptions[i].date,
+                    doctorUsername: prescriptions[i].doctorUsername,
+                    medicine: prescriptions[i].medicines[j]
+                });
+            }
+        }
 
         const columns = [
-            { title: "Date", getCellHtml: function (item) { return item.date; } },
-            { title: "Medicines", getCellHtml: function (item) {
-                const names = [];
-                for (let i = 0; i < item.medicines.length; i++) {
-                    names.push(item.medicines[i].name + " " + item.medicines[i].dosage);
-                }
-                return htmlHelper.escapeText(names.join(", "));
-            } }
+            { title: "Date", getCellHtml: function (row) { return safe(row.date); } },
+            { title: "Medicine", getCellHtml: function (row) { return safe(row.medicine.name); } },
+            { title: "Dosage (e.g. 500 mg)", getCellHtml: function (row) { return safe(row.medicine.dosage || "-"); } },
+            { title: "Frequency", getCellHtml: function (row) { return safe(row.medicine.frequency || "-"); } },
+            { title: "Duration", getCellHtml: function (row) { return safe(row.medicine.duration || "-"); } },
+            { title: "Quantity", getCellHtml: function (row) { return safe(row.medicine.quantity); } },
+            { title: "Instructions", getCellHtml: function (row) { return safe(row.medicine.instructions || "-"); } },
+            { title: "Doctor", getCellHtml: function (row) { return safe(userService.getFullNameByUsername(row.doctorUsername)); } }
         ];
-        return tableBuilder.buildTableHtml(columns, prescriptions, "No prescriptions yet.");
+        return tableBuilder.buildTableHtml(columns, rows, "No prescriptions yet.");
     }
-
     buildAppointmentsTab(patient) {
         const allAppointments = appointmentService.getAppointmentsForCurrentUser();
         const patientAppointments = [];

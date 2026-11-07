@@ -16,14 +16,14 @@ class PermissionService {
                 "consultations.view", "history.view", "prescriptions.view",
                 "medications.view", "medications.manage",
                 "billing.view", "billing.collect", "billing.reports", "billing.prices",
-                "reports.view", "users.manage", "logs.view"
+                "reports.view", "users.manage", "logs.view", "archive.restore"
             ],
             Staff: [
                 "dashboard.staff",
                 "patients.view", "patients.create", "patients.edit",
                 "appointments.view", "appointments.manage", "queue.manage", "vitals.record", "results.record",
                 "medications.view", "medications.manage",
-                "billing.view", "billing.collect"
+                "billing.view", "billing.collect", "archive.restore"
             ],
             Doctor: [
                 "dashboard.doctor",

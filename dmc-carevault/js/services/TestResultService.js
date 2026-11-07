@@ -77,7 +77,22 @@ class TestResultService {
         }
         throw new Error("Result not found.");
     }
-
+    
+    // Every test result of one patient, from all visits, newest first.
+    getResultsForPatient(patientId) {
+        const allResults = storageService.loadList("testResults");
+        const result = [];
+        for (let i = 0; i < allResults.length; i++) {
+            if (allResults[i].patientId === patientId) {
+                result.push(allResults[i]);
+            }
+        }
+        result.sort(function (first, second) {
+            return String(second.recordedAt).localeCompare(String(first.recordedAt));
+        });
+        return result;
+    }
+    
     // The main window: every result of the visit, with Record and Edit buttons for staff and admin.
     openDialog(entry, onChanged) {
         const service = this;

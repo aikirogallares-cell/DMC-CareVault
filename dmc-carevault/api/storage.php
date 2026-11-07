@@ -17,14 +17,16 @@ $readers = [
     'users' => 'read_users', 'patients' => 'read_patients', 'consultations' => 'read_consultations',
     'prescriptions' => 'read_prescriptions', 'medications' => 'read_medications', 'bills' => 'read_bills',
     'appointments' => 'read_appointments', 'auditLogs' => 'read_audit_logs',
-    'testResults' => 'read_test_results',
+    'testResults' => 'read_test_results',  'doctorAvailability' => 'read_doctor_availability',
+    'doctorProfiles' => 'read_doctor_profiles', 'archivedPrescriptions' => 'read_archived_prescriptions',
 ];
 // Who may WRITE each list (the server repeats the permission checks of the JavaScript).
 $writers = [
     'users' => ['Admin'], 'patients' => ['Admin', 'Staff', 'Doctor'], 'consultations' => ['Doctor'],
     'prescriptions' => ['Doctor'], 'medications' => ['Admin', 'Staff'], 'bills' => ['Admin', 'Staff'],
     'testResults' => ['Admin', 'Staff'],
-    'appointments' => ['Admin', 'Staff', 'Doctor'],
+    'appointments' => ['Admin', 'Staff', 'Doctor'], 'doctorAvailability' => ['Doctor'],
+    'doctorProfiles' => ['Doctor'], 'archivedPrescriptions' => ['Admin', 'Staff'],
 ];
 $noPermission = ['message' => 'You do not have permission to perform this action.'];
 
@@ -401,7 +403,7 @@ function save_consultations(PDO $pdo, array $c, bool $isNew, array $user): void 
         'notes' => nz(sv($c, 'notes')),
         'follow_up_date' => check_date(sv($c, 'followUpDate'), 'Follow-up date', false),
     ];
-    check_len($row, ['id' => 10, 'blood_pressure' => 10, 'chief_complaint' => 255, 'diagnosis' => 255]);
+    check_len($row, ['id' => 10, 'blood_pressure' => 10, 'chief_complaint' => 255, 'diagnosis' => 2000]);
     if ($isNew) {
         $row['doctor_username'] = $user['username'];
     }
@@ -834,4 +836,140 @@ function save_testResults(PDO $pdo, array $t, bool $isNew, array $user): void {
     $pdo->prepare('UPDATE test_results SET result_text = ?, updated_by = ?, updated_at = NOW() WHERE id = ?')
         ->execute([$resultText, $user['username'], $id]);
     log_action($user['username'], $user['role'], 'Test result changed', $id);
+}
+
+/* ================= doctor ready status ================= */
+
+// Everyone signed in can read who is ready. Only the doctor can change their own status.
+function read_doctor_availability(array $user): array {
+    $rows = db()->query('SELECT doctor_username, is_ready, ready_at, updated_at FROM doctor_availability')->fetchAll();
+    $list = [];
+    foreach ($rows as $r) {
+        $list[] = [
+            'id' => $r['doctor_username'],
+            'doctorUsername' => $r['doctor_username'],
+            'isReady' => (int)$r['is_ready'] === 1,
+            'readyAt' => $r['ready_at'] ? date('c', strtotime($r['ready_at'])) : null,
+            'updatedAt' => $r['updated_at'] ? date('c', strtotime($r['updated_at'])) : null,
+        ];
+    }
+    return $list;
+}
+
+function save_doctorAvailability(PDO $pdo, array $a, bool $isNew, array $user): void {
+    $doctor = sv($a, 'doctorUsername');
+    if ($doctor !== $user['username']) {
+        throw new UserError('You can only change your own ready status.');
+    }
+    $isReady = !empty($a['isReady']) ? 1 : 0;
+    $readyAt = to_datetime(sv($a, 'readyAt'));
+    $updatedAt = to_datetime(sv($a, 'updatedAt')) ?? date('Y-m-d H:i:s');
+
+    $pdo->prepare('INSERT INTO doctor_availability (doctor_username, is_ready, ready_at, updated_at) VALUES (?, ?, ?, ?) ON DUPLICATE KEY UPDATE is_ready = VALUES(is_ready), ready_at = VALUES(ready_at), updated_at = VALUES(updated_at)')
+        ->execute([$doctor, $isReady, $readyAt, $updatedAt]);
+}
+
+/* ================= doctor prescription details (Lic, PTR, S2, TIN, DEA, NPI) ================= */
+
+// Everyone signed in can read these, because they are printed on prescriptions.
+function read_doctor_profiles(array $user): array {
+    $rows = db()->query('SELECT * FROM doctor_profiles')->fetchAll();
+    $list = [];
+    foreach ($rows as $r) {
+        $list[] = ['id' => $r['doctor_username'], 'doctorUsername' => $r['doctor_username'],
+            'licenseNo' => $r['license_no'] ?? '', 'ptrNo' => $r['ptr_no'] ?? '', 's2No' => $r['s2_no'] ?? '',
+            'tin' => $r['tin'] ?? '', 'deaNo' => $r['dea_no'] ?? '', 'npiNo' => $r['npi_no'] ?? ''];
+    }
+    return $list;
+}
+
+// A doctor may only change their own details.
+function save_doctorProfiles(PDO $pdo, array $p, bool $isNew, array $user): void {
+    $doctor = sv($p, 'doctorUsername');
+    if ($doctor !== $user['username']) {
+        throw new UserError('You can only change your own prescription details.');
+    }
+    $row = ['license_no' => nz(sv($p, 'licenseNo')), 'ptr_no' => nz(sv($p, 'ptrNo')), 's2_no' => nz(sv($p, 's2No')),
+        'tin' => nz(sv($p, 'tin')), 'dea_no' => nz(sv($p, 'deaNo')), 'npi_no' => nz(sv($p, 'npiNo'))];
+    check_len($row, ['license_no' => 30, 'ptr_no' => 30, 's2_no' => 30, 'tin' => 30, 'dea_no' => 30, 'npi_no' => 30]);
+
+    $pdo->prepare('INSERT INTO doctor_profiles (doctor_username, license_no, ptr_no, s2_no, tin, dea_no, npi_no, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, NOW()) ON DUPLICATE KEY UPDATE license_no = VALUES(license_no), ptr_no = VALUES(ptr_no), s2_no = VALUES(s2_no), tin = VALUES(tin), dea_no = VALUES(dea_no), npi_no = VALUES(npi_no), updated_at = NOW()')
+        ->execute([$doctor, $row['license_no'], $row['ptr_no'], $row['s2_no'], $row['tin'], $row['dea_no'], $row['npi_no']]);
+}
+
+/* ================= archived prescriptions (restored from the paper archive) ================= */
+
+function read_archived_prescriptions(array $user): array {
+    $pdo = db();
+    $rows = $pdo->query('SELECT * FROM archived_prescriptions ORDER BY prescribed_date DESC, id DESC')->fetchAll();
+    $itemRows = $pdo->query('SELECT * FROM archived_prescription_items ORDER BY id')->fetchAll();
+    $text = function ($v) { return $v === null ? '' : (string)$v; };
+
+    $itemsById = [];
+    foreach ($itemRows as $i) {
+        $itemsById[$i['archived_id']][] = [
+            'name' => $i['medicine_name'], 'dosage' => $text($i['dosage']), 'frequency' => $text($i['frequency']),
+            'duration' => $text($i['duration']), 'quantity' => $text($i['quantity']), 'instructions' => $text($i['instructions']),
+        ];
+    }
+
+    $list = [];
+    foreach ($rows as $r) {
+        $list[] = [
+            'id' => $r['id'], 'patientId' => $text($r['patient_id']), 'patientNameAsWritten' => $r['patient_name'],
+            'ageAsWritten' => $text($r['age_text']), 'sexAsWritten' => $text($r['sex']),
+            'addressAsWritten' => $text($r['address']), 'date' => $r['prescribed_date'],
+            'doctorNameAsWritten' => $r['doctor_name'], 'note' => $text($r['note']),
+            'enteredBy' => $r['entered_by'], 'enteredAt' => date('c', strtotime($r['entered_at'])),
+            'medicines' => $itemsById[$r['id']] ?? [],
+        ];
+    }
+    return $list;
+}
+
+// A restored entry is a copy of the paper, so it can be added but never changed.
+function save_archivedPrescriptions(PDO $pdo, array $a, bool $isNew, array $user): void {
+    if (!$isNew) {
+        throw new UserError('Restored prescriptions cannot be changed after saving.');
+    }
+    $id = need(sv($a, 'id'), 'Archive ID');
+
+    $patientId = nz(sv($a, 'patientId'));
+    if ($patientId !== null) {
+        $st = $pdo->prepare('SELECT COUNT(*) FROM patients WHERE id = ?');
+        $st->execute([$patientId]);
+        if ((int)$st->fetchColumn() === 0) {
+            throw new UserError('Patient not found.');
+        }
+    }
+
+    $medicines = is_array($a['medicines'] ?? null) ? $a['medicines'] : [];
+    if (count($medicines) === 0) {
+        throw new UserError('Add at least one medicine.');
+    }
+
+    $row = [
+        'id' => $id,
+        'patient_id' => $patientId,
+        'patient_name' => need(sv($a, 'patientNameAsWritten'), 'Patient name'),
+        'age_text' => nz(sv($a, 'ageAsWritten')),
+        'sex' => nz(sv($a, 'sexAsWritten')),
+        'address' => nz(sv($a, 'addressAsWritten')),
+        'prescribed_date' => check_date(sv($a, 'date'), 'Date', true),
+        'doctor_name' => need(sv($a, 'doctorNameAsWritten'), 'Doctor name'),
+        'note' => nz(sv($a, 'note')),
+        'entered_by' => $user['username'],
+        'entered_at' => date('Y-m-d H:i:s'),
+    ];
+    check_len($row, ['id' => 10, 'patient_id' => 10, 'patient_name' => 150, 'age_text' => 30, 'sex' => 10,
+        'address' => 255, 'doctor_name' => 100, 'entered_by' => 20]);
+    upsert($pdo, 'archived_prescriptions', $row, true);
+
+    $insert = $pdo->prepare('INSERT INTO archived_prescription_items (archived_id, medicine_name, dosage, frequency, duration, quantity, instructions) VALUES (?, ?, ?, ?, ?, ?, ?)');
+    foreach ($medicines as $m) {
+        $name = need(sv($m, 'name'), 'Medicine name');
+        check_len(['medicine_name' => $name], ['medicine_name' => 150]);
+        $insert->execute([$id, $name, nz(sv($m, 'dosage')), nz(sv($m, 'frequency')), nz(sv($m, 'duration')),
+            nz(sv($m, 'quantity')), nz(sv($m, 'instructions'))]);
+    }
 }

@@ -20,6 +20,7 @@ class PageRegistry {
             { id: "reports", fileName: "reports.html", title: "Reports", permission: "reports.view", icon: "▤" },
             { id: "users", fileName: "users.html", title: "User Management", permission: "users.manage", icon: "⚙" },
             { id: "logs", fileName: "activity-logs.html", title: "Activity Logs", permission: "logs.view", icon: "☷" },
+            { id: "restoration", fileName: "restoration.html", title: "Archive Restoration", permission: "archive.restore", icon: "⟲" },
             { id: "settings", fileName: "settings.html", title: "Settings", permission: null, icon: "⚑" }
         ];
     }
