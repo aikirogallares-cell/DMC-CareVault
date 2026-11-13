@@ -1,0 +1,399 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Clinic Hours and Services - Dumaual Medical Clinic</title>
+    <link rel="stylesheet" href="css/style.css">
+    <style>
+        :root {
+            --mint: #E8F5E9;
+            --leaf: #2E7D32;
+            --forest: #1B5E20;
+            --sun: #FFD54F;
+            --peach: #FFAB91;
+            --sky: #81D4FA;
+        }
+        * { box-sizing: border-box; }
+        body {
+            margin: 0;
+            min-height: 100vh;
+            font-family: "Segoe UI", Roboto, Arial, sans-serif;
+            color: #263238;
+            background: linear-gradient(-45deg, #E8F5E9, #E3F2FD, #FFF8E1, #E8F5E9);
+            background-size: 400% 400%;
+            animation: drift 18s ease infinite;
+            overflow-x: hidden;
+        }
+        @keyframes drift {
+            0%   { background-position: 0% 50%; }
+            50%  { background-position: 100% 50%; }
+            100% { background-position: 0% 50%; }
+        }
+
+        /* Floating decorative shapes */
+        .blob {
+            position: fixed; border-radius: 50%; filter: blur(2px);
+            opacity: .35; z-index: 0; pointer-events: none;
+            animation: float 14s ease-in-out infinite;
+        }
+        .blob.b1 { width: 260px; height: 260px; background: var(--sun); top: -60px; left: -80px; }
+        .blob.b2 { width: 200px; height: 200px; background: var(--sky); top: 30%; right: -70px; animation-delay: -4s; }
+        .blob.b3 { width: 160px; height: 160px; background: var(--peach); bottom: -40px; left: 30%; animation-delay: -8s; }
+        @keyframes float {
+            0%, 100% { transform: translate(0, 0) scale(1); }
+            50%      { transform: translate(20px, -30px) scale(1.08); }
+        }
+
+        .page { position: relative; z-index: 1; max-width: 1060px; margin: 0 auto; padding: 24px 18px 48px; }
+
+        /* Top bar with back button */
+        .topbar {
+            display: flex; align-items: center; justify-content: space-between;
+            flex-wrap: wrap; gap: 12px; margin-bottom: 26px;
+        }
+        .brand { display: flex; align-items: center; gap: 12px; }
+        .brand-logo {
+            width: 48px; height: 48px; border-radius: 14px;
+            background: var(--leaf); color: #fff;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 26px; font-weight: 700;
+            box-shadow: 0 6px 16px rgba(46,125,50,.35);
+            animation: wobble 4s ease-in-out infinite;
+        }
+        @keyframes wobble {
+            0%, 100% { transform: rotate(0deg); }
+            25% { transform: rotate(-6deg); }
+            75% { transform: rotate(6deg); }
+        }
+        .brand h1 { margin: 0; font-size: 20px; color: var(--forest); }
+        .brand p { margin: 2px 0 0; font-size: 13px; color: #667085; }
+
+        .back-btn {
+            display: inline-flex; align-items: center; gap: 8px;
+            text-decoration: none; color: var(--forest);
+            background: #fff; border: 2px solid var(--leaf);
+            padding: 9px 18px; border-radius: 999px;
+            font-weight: 600; font-size: 14px;
+            transition: transform .2s, background .2s, color .2s;
+        }
+        .back-btn:hover { background: var(--leaf); color: #fff; transform: translateX(-4px); }
+        .back-btn .arrow { display: inline-block; transition: transform .2s; }
+        .back-btn:hover .arrow { transform: translateX(-3px); }
+
+        /* Hero */
+        .hero {
+            text-align: center; padding: 26px 16px 10px;
+        }
+        .hero h2 {
+            font-size: clamp(28px, 5vw, 42px); margin: 0 0 8px; color: var(--forest);
+            letter-spacing: -.5px;
+        }
+        .hero h2 .wave { display: inline-block; animation: bounce 2.4s ease-in-out infinite; transform-origin: 70% 70%; }
+        @keyframes bounce {
+            0%, 100% { transform: translateY(0) rotate(0); }
+            50% { transform: translateY(-6px) rotate(12deg); }
+        }
+        .hero p { margin: 0; color: #546E7A; font-size: 16px; }
+
+        .status-wrap { display: flex; justify-content: center; margin: 18px 0 8px; }
+        .status {
+            display: inline-flex; align-items: center; gap: 10px;
+            padding: 10px 18px; border-radius: 999px;
+            font-weight: 700; font-size: 15px;
+            background: #fff; box-shadow: 0 6px 18px rgba(0,0,0,.08);
+        }
+        .dot { width: 12px; height: 12px; border-radius: 50%; position: relative; }
+        .status.open .dot { background: #43A047; }
+        .status.open .dot::after, .status.closed .dot::after {
+            content: ""; position: absolute; inset: -6px; border-radius: 50%;
+            border: 2px solid currentColor; opacity: 0;
+            animation: ping 1.8s ease-out infinite;
+        }
+        .status.open { color: var(--forest); }
+        .status.closed { color: #C62828; }
+        .status.closed .dot { background: #E53935; }
+        @keyframes ping {
+            0% { transform: scale(.5); opacity: .9; }
+            100% { transform: scale(1.8); opacity: 0; }
+        }
+
+        /* Cards */
+        .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 22px; margin-top: 26px; }
+        .panel {
+            background: rgba(255,255,255,.92);
+            border-radius: 22px; padding: 24px;
+            box-shadow: 0 14px 34px rgba(27,94,32,.10);
+            border: 1px solid rgba(255,255,255,.8);
+            opacity: 0; transform: translateY(18px);
+            animation: rise .7s ease forwards;
+        }
+        .panel:nth-child(2) { animation-delay: .15s; }
+        @keyframes rise { to { opacity: 1; transform: translateY(0); } }
+        .panel h2 {
+            display: flex; align-items: center; gap: 10px;
+            font-size: 20px; margin: 0 0 16px; color: var(--forest);
+        }
+        .panel h2 .emoji { font-size: 24px; }
+
+        /* Day tiles */
+        .days { display: grid; gap: 10px; }
+        .day {
+            display: flex; justify-content: space-between; align-items: center;
+            padding: 12px 16px; border-radius: 14px;
+            background: #F7FBF8; border: 1px solid #E3EFE5;
+            transition: transform .2s, box-shadow .2s;
+        }
+        .day:hover { transform: translateX(6px); box-shadow: 0 6px 14px rgba(0,0,0,.06); }
+        .day .name { font-weight: 600; }
+        .day .time { color: #455A64; font-size: 14px; }
+        .day.closed-day { background: #FFF5F5; border-color: #FFD6D6; }
+        .day.closed-day .time { color: #C62828; font-weight: 600; }
+        .day.today {
+            background: linear-gradient(90deg, var(--leaf), #43A047);
+            color: #fff; border-color: transparent;
+            box-shadow: 0 10px 22px rgba(46,125,50,.35);
+            transform: scale(1.02);
+        }
+        .day.today .time { color: #fff; }
+        .day.today .name::after {
+            content: "  •  Today"; font-size: 12px; font-weight: 500; opacity: .9;
+        }
+
+        /* Service cards */
+        .services { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+        .service {
+            background: #fff; border-radius: 16px; padding: 16px;
+            border: 1px solid #E3EFE5; text-align: left;
+            transition: transform .25s, box-shadow .25s;
+            position: relative; overflow: hidden;
+        }
+        .service:hover { transform: translateY(-5px) rotate(-.5deg); box-shadow: 0 14px 26px rgba(27,94,32,.15); }
+        .service .icon {
+            width: 40px; height: 40px; border-radius: 12px;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 20px; margin-bottom: 10px;
+        }
+        .service .sname { font-weight: 700; font-size: 15px; }
+        .service .price {
+            margin-top: 6px; font-size: 22px; font-weight: 800; color: var(--leaf);
+        }
+        .service .price small { font-size: 12px; font-weight: 500; color: #78909C; }
+        .service::before {
+            content: ""; position: absolute; top: -20px; right: -20px;
+            width: 60px; height: 60px; border-radius: 50%;
+            background: currentColor; opacity: .08;
+        }
+        .c1 { background: #FFF8E1; color: #F9A825; }
+        .c2 { background: #E3F2FD; color: #1E88E5; }
+        .c3 { background: #FCE4EC; color: #D81B60; }
+        .c4 { background: #EDE7F6; color: #5E35B1; }
+        .c5 { background: #E0F2F1; color: #00897B; }
+        .c6 { background: #FFF3E0; color: #EF6C00; }
+
+        .note { color: #607D8B; font-size: 13px; line-height: 1.5; margin: 16px 0 0; }
+
+        .address {
+            margin-top: 20px; padding: 16px; border-radius: 16px;
+            background: linear-gradient(135deg, #E8F5E9, #E3F2FD);
+            font-size: 14px; line-height: 1.7;
+        }
+        .address strong { color: var(--forest); }
+
+        .footer { text-align: center; margin-top: 36px; color: #78909C; font-size: 13px; }
+            
+
+        @media (max-width: 800px) {
+            .grid { grid-template-columns: 1fr; }
+            .info-link { color: var(--g); border-color: var(--g); }
+        }
+        @media (max-width: 420px) {
+            .services { grid-template-columns: 1fr; }
+        }
+        @media (prefers-reduced-motion: reduce) {
+            *, *::before, *::after { animation: none !important; transition: none !important; }
+            .panel { opacity: 1; transform: none; }
+        }
+    </style>
+</head>
+<body>
+    <div class="blob b1"></div>
+    <div class="blob b2"></div>
+    <div class="blob b3"></div>
+
+    <div class="page">
+
+        <header class="topbar">
+            <div class="brand">
+                <div class="brand-logo">✚</div>
+                <div>
+                    <h1>Dumaual Medical Clinic</h1>
+                    <p>Hours, services and prices</p>
+                </div>
+            </div>
+            <a class="back-btn" href="index.html">
+                <span class="arrow">←</span> Back to home
+            </a>
+        </header>
+
+        <section class="hero">
+            <h2>We're here for you <span class="wave">👋</span></h2>
+            <p>Find out when we're open and what our services cost.</p>
+            <div class="status-wrap">
+                <div id="statusBadge" class="status closed">
+                    <span class="dot"></span>
+                    <span id="statusText">Checking...</span>
+                </div>
+            </div>
+        </section>
+
+        <div class="grid">
+            <!-- Hours -->
+            <section class="panel">
+                <h2><span class="emoji">🗓️</span> When we're open</h2>
+                <div class="days" id="daysList"></div>
+                <p class="note">Hours may change on holidays. Please call the clinic to confirm.</p>
+
+                <div class="address">
+                    <strong>Find us</strong><br>
+                    2164 Primo Rivera St., Brgy. La Paz, Makati City<br>
+                    Tel. No.: 8890-1515 / 8401-2996
+                </div>
+            </section>
+
+            <!-- Services -->
+            <section class="panel">
+                <h2><span class="emoji">🩺</span> Services and base prices</h2>
+                <div class="services" id="servicesList"></div>
+                <p class="note">
+                    Prices are in Philippine pesos (₱) and shown before any discount.
+                    Medicines are priced separately at the cashier, based on the medicine and quantity.
+                    Senior citizens and PWD may be eligible for a discount. Please ask at the front desk.
+                </p>
+            </section>
+        </div>
+
+        <p class="footer">Dumaual Medical Clinic · Makati City</p>
+    </div>
+
+    <script>
+        // ---- Edit these lists to change what the page shows ----
+
+        // day: 0 = Sunday ... 6 = Saturday. open and close use 24-hour time. null = closed.
+        const weeklySchedule = [
+            { day: 0, name: "Sunday",    open: null,    close: null },
+            { day: 1, name: "Monday",    open: "08:00", close: "16:00" },
+            { day: 2, name: "Tuesday",   open: "08:00", close: "16:00" },
+            { day: 3, name: "Wednesday", open: "08:00", close: "16:00" },
+            { day: 4, name: "Thursday",  open: "08:00", close: "16:00" },
+            { day: 5, name: "Friday",    open: "08:00", close: "16:00" },
+            { day: 6, name: "Saturday",  open: "08:00", close: "12:00" }
+        ];
+
+        // icon: any emoji or symbol. color: one of c1 to c6 in the CSS.
+        const services = [
+            { name: "Check-up",      price: 300, icon: "🩺", color: "c1" },
+            { name: "X-ray",         price: 500, icon: "🦴", color: "c2" },
+            { name: "Urine Test",    price: 150, icon: "🧪", color: "c3" },
+            { name: "Blood Test",    price: 350, icon: "🩸", color: "c4" },
+            { name: "Getting Blood", price: 100, icon: "💉", color: "c5" },
+            { name: "Getting Urine", price: 80,  icon: "🥤", color: "c6" }
+        ];
+
+        // ---- Helpers ----
+
+        // "08:00" -> "8:00 am"
+        function formatTime(text) {
+            const parts = text.split(":");
+            let hour = parseInt(parts[0], 10);
+            const suffix = hour >= 12 ? "pm" : "am";
+            hour = hour % 12;
+            if (hour === 0) { hour = 12; }
+            return hour + ":" + parts[1] + " " + suffix;
+        }
+
+        function minutesOf(text) {
+            const parts = text.split(":");
+            return parseInt(parts[0], 10) * 60 + parseInt(parts[1], 10);
+        }
+
+        // ---- Build the page ----
+
+        function buildDays() {
+            const list = document.getElementById("daysList");
+            const today = new Date().getDay();
+
+            weeklySchedule.forEach(function (entry) {
+                const tile = document.createElement("div");
+                tile.className = "day";
+                if (entry.open === null) { tile.classList.add("closed-day"); }
+                if (entry.day === today) { tile.classList.add("today"); }
+
+                const name = document.createElement("span");
+                name.className = "name";
+                name.textContent = entry.name;
+
+                const time = document.createElement("span");
+                time.className = "time";
+                time.textContent = entry.open === null
+                    ? "Closed"
+                    : formatTime(entry.open) + " to " + formatTime(entry.close);
+
+                tile.appendChild(name);
+                tile.appendChild(time);
+                list.appendChild(tile);
+            });
+        }
+
+        function buildServices() {
+            const list = document.getElementById("servicesList");
+            services.forEach(function (service) {
+                const card = document.createElement("div");
+                card.className = "service";
+
+                const icon = document.createElement("div");
+                icon.className = "icon " + service.color;
+                icon.textContent = service.icon;
+
+                const name = document.createElement("div");
+                name.className = "sname";
+                name.textContent = service.name;
+
+                const price = document.createElement("div");
+                price.className = "price";
+                price.textContent = "₱" + service.price.toLocaleString("en-PH");
+                const small = document.createElement("small");
+                small.textContent = " base";
+                price.appendChild(small);
+
+                card.appendChild(icon);
+                card.appendChild(name);
+                card.appendChild(price);
+                list.appendChild(card);
+            });
+        }
+
+        // Shows Open or Closed based on the visitor's current time.
+        function showOpenStatus() {
+            const badge = document.getElementById("statusBadge");
+            const text = document.getElementById("statusText");
+            const now = new Date();
+            const todayEntry = weeklySchedule.find(function (entry) { return entry.day === now.getDay(); });
+            const nowMinutes = now.getHours() * 60 + now.getMinutes();
+
+            const isOpen = todayEntry.open !== null &&
+                nowMinutes >= minutesOf(todayEntry.open) &&
+                nowMinutes < minutesOf(todayEntry.close);
+
+            badge.className = "status " + (isOpen ? "open" : "closed");
+            text.textContent = isOpen
+                ? "Open now until " + formatTime(todayEntry.close)
+                : "Closed right now";
+        }
+
+        buildDays();
+        buildServices();
+        showOpenStatus();
+    </script>
+</body>
+</html>

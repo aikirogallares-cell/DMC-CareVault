@@ -21,6 +21,7 @@ class PageRegistry {
             { id: "users", fileName: "users.html", title: "User Management", permission: "users.manage", icon: "⚙" },
             { id: "logs", fileName: "activity-logs.html", title: "Activity Logs", permission: "logs.view", icon: "☷" },
             { id: "restoration", fileName: "restoration.html", title: "Archive Restoration", permission: "archive.restore", icon: "⟲" },
+            { id: "patient-approvals", fileName: "patient-approvals.html", title: "Patient Approvals", permission: "users.manage", icon: "✔" },
             { id: "settings", fileName: "settings.html", title: "Settings", permission: null, icon: "⚑" }
         ];
     }

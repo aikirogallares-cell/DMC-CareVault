@@ -3,42 +3,479 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Login - DMC CareVault</title>
+    <title>DMC CareVault - Dumaual Medical Clinic</title>
     <link rel="stylesheet" href="css/style.css">
-    <link rel="stylesheet" href="css/login.css">
+    <style>
+        body {
+            min-height: 100vh;
+            background: linear-gradient(135deg, #1B5E20 0%, #2E7D32 40%, #E8F5E9 40%, #F5F7F6 100%);
+        }
+        .shell {
+            max-width: 1120px;
+            margin: 0 auto;
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 36px;
+            padding: 36px 20px;
+            align-items: start;
+        }
+
+        /* Left side: brand and clinic information */
+        .brand-side { color: #fff; }
+        .brand-logo {
+            width: 56px; height: 56px; border-radius: 14px;
+            background: #fff; color: var(--g);
+            display: flex; align-items: center; justify-content: center;
+            font-size: 30px; font-weight: 700; margin-bottom: 14px;
+        }
+        .brand-side h1 { color: #fff; font-size: 32px; margin-bottom: 6px; }
+        .brand-side .tagline { opacity: .9; margin: 0 0 22px; }
+
+        .info-card {
+            background: #fff;
+            color: var(--tx);
+            border-radius: 14px;
+            padding: 18px 20px;
+            margin-bottom: 16px;
+            box-shadow: 0 8px 22px rgba(0,0,0,.12);
+        }
+        .info-card h2 { font-size: 16px; margin-bottom: 10px; color: var(--gd); }
+        .info-card .address { font-size: 13px; line-height: 1.6; color: var(--tx2); margin: 0; }
+
+        .status {
+            display: inline-flex; align-items: center; gap: 8px;
+            padding: 6px 12px; border-radius: 999px;
+            font-size: 13px; font-weight: 600; margin-bottom: 12px;
+        }
+        .status .dot { width: 9px; height: 9px; border-radius: 50%; }
+        .status.open { background: var(--gl); color: var(--gd); }
+        .status.open .dot { background: #43A047; }
+        .status.closed { background: #fdecea; color: var(--red); }
+        .status.closed .dot { background: #E53935; }
+
+        table.mini { width: 100%; border-collapse: collapse; font-size: 13px; }
+        table.mini td { padding: 6px 4px; border-bottom: 1px solid var(--bd); }
+        table.mini td.r { text-align: right; white-space: nowrap; }
+        table.mini tr.today td { background: var(--gl); font-weight: 600; color: var(--gd); }
+        table.mini tr.closed-day td { color: var(--red); }
+
+        .services-list { width: 100%; border-collapse: collapse; font-size: 13px; }
+        .services-list td { padding: 7px 4px; border-bottom: 1px solid var(--bd); }
+        .services-list td.r { text-align: right; font-weight: 700; color: var(--g); white-space: nowrap; }
+        .info-note { font-size: 12px; color: var(--tx2); margin: 10px 0 0; line-height: 1.5; }
+
+        /* Right side: the form card */
+        .card-login {
+            background: #fff;
+            border-radius: 16px;
+            padding: 30px;
+            box-shadow: 0 14px 40px rgba(0,0,0,.18);
+            position: sticky;
+            top: 20px;
+        }
+        .card-login h2 { font-size: 22px; margin-bottom: 4px; }
+        .card-login .hint { color: var(--tx2); font-size: 13px; margin: 0 0 18px; }
+
+        .modes { display: flex; border-bottom: 1px solid var(--bd); margin-bottom: 18px; }
+        .mode-btn {
+            flex: 1; background: none; border: 0; cursor: pointer;
+            padding: 10px; font: inherit; color: var(--tx2);
+            border-bottom: 2px solid transparent;
+        }
+        .mode-btn.on { color: var(--g); border-bottom-color: var(--g); font-weight: 600; }
+
+        .card-login .fg { margin-bottom: 13px; }
+        .card-login .btn { width: 100%; padding: 11px; font-size: 14px; margin-top: 4px; }
+        .card-login .err { min-height: 18px; }
+        .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0 12px; }
+        .form-grid .full { grid-column: 1 / -1; }
+        .note { color: var(--tx2); font-size: 12px; margin: 10px 0 0; }
+
+        .hidden { display: none !important; }
+
+        @media (max-width: 860px) {
+            .shell { grid-template-columns: 1fr; gap: 24px; padding: 24px 16px; }
+            body { background: #F5F7F6; }
+            .brand-side { color: var(--gd); }
+            .brand-side .tagline { color: var(--tx2); }
+            .brand-logo { background: var(--g); color: #fff; }
+            .card-login { position: static; }
+        }
+        @media (max-width: 520px) {
+            .form-grid { grid-template-columns: 1fr; }
+        }
+    </style>
 </head>
-<body class="login">
-    <div class="box">
-        <div class="logo">✚</div>
-        <h1>DMC CareVault</h1>
-        <p>Patient Records &amp; Clinic Management System</p>
-        <p class="clinic">Dumaual Medical Clinic</p>
+<body>
+    <main class="shell">
 
-        <div class="fg">
-            <label for="usernameInput">Username</label>
-            <input id="usernameInput" autocomplete="username" autofocus>
-        </div>
-        <div class="fg">
-            <label for="passwordInput">Password</label>
-            <div class="pw">
-                <input id="passwordInput" type="password" autocomplete="current-password">
-                <button type="button" id="togglePasswordButton">Show</button>
+        <!-- Left side: brand, hours, services -->
+        <section class="brand-side">
+            <div class="brand-logo">✚</div>
+            <h1>DMC CareVault</h1>
+            <p class="tagline">Dumaual Medical Clinic · Patient Records &amp; Clinic Management</p>
+
+            <div class="info-card">
+                <h2>Clinic hours</h2>
+                <div id="statusBadge" class="status closed">
+                    <span class="dot"></span>
+                    <span id="statusText">Checking...</span>
+                </div>
+                <table class="mini">
+                    <tbody id="hoursBody"></tbody>
+                </table>
             </div>
-        </div>
-        <div class="err" id="loginError" role="alert"></div>
-        <button class="btn" id="loginButton">Login</button>
-    </div>
-    <div id="toasts"></div>
 
-    <script src="js/core/PasswordHasher.js"></script>
-    <script src="js/core/StorageService.js"></script>
-    <script src="js/core/DateHelper.js"></script>
-    <script src="js/core/HtmlHelper.js"></script>
-    <script src="js/core/Validator.js"></script>
-    <script src="js/core/SampleData.js"></script>
-    <script src="js/services/AuditLogService.js"></script>
-    <script src="js/services/AuthService.js"></script>
-    <script src="js/ui/Notifier.js"></script>
-    <script src="js/pages/LoginPage.js"></script>
+            <div class="info-card">
+                <h2>Services and base prices</h2>
+                <table class="services-list">
+                    <tbody id="servicesBody"></tbody>
+                </table>
+                <p class="info-note">
+                    Prices in pesos (₱), before any discount. Medicines are priced at the cashier.
+                    Senior citizens and PWD may be eligible for a discount. Please ask at the front desk.
+                </p>
+            </div>
+
+            <div class="info-card">
+                <h2>Find us</h2>
+                <p class="address">
+                    2164 Primo Rivera St., Brgy. La Paz, Makati City<br>
+                    Tel. No.: 8890-1515 / 8401-2996
+                </p>
+            </div>
+        </section>
+
+        <!-- Right side: sign in and create account -->
+        <section class="card-login">
+            <h2 id="formTitle">Sign in</h2>
+            <p class="hint" id="formHint">Enter your username and password. Staff and patients sign in here.</p>
+
+            <div class="modes">
+                <button type="button" class="mode-btn on" id="modeSignIn">Sign in</button>
+                <button type="button" class="mode-btn" id="modeSignUp">Create account</button>
+            </div>
+
+            <!-- Sign in -->
+            <div id="signInForm">
+                <div class="fg">
+                    <label for="usernameInput">Username</label>
+                    <input id="usernameInput" autocomplete="username" autofocus>
+                </div>
+                <div class="fg">
+                    <label for="passwordInput">Password</label>
+                    <input id="passwordInput" type="password" autocomplete="current-password">
+                </div>
+                <div class="err" id="signInError" role="alert"></div>
+                <button class="btn" id="signInButton">Sign in</button>
+            </div>
+
+            <!-- Create a patient account -->
+            <div id="signUpForm" class="hidden">
+                <div class="form-grid">
+                    <div class="fg full">
+                        <label for="regFullName">Full name</label>
+                        <input id="regFullName" autocomplete="name">
+                    </div>
+                    <div class="fg">
+                        <label for="regBirthDate">Date of birth</label>
+                        <input id="regBirthDate" type="date">
+                    </div>
+                    <div class="fg">
+                        <label for="regGender">Gender</label>
+                        <select id="regGender">
+                        <option value="">Choose...</option>
+                        <option>Male</option>
+                        <option>Female</option>
+                            </select>
+                    </div>
+                    <div class="fg">
+                        <label for="regContact">Contact number</label>
+                        <input id="regContact" placeholder="09171234567" inputmode="numeric" maxlength="11">
+                    </div>
+                    <div class="fg full">
+                        <label for="regEmail">Email (optional)</label>
+                        <input id="regEmail" type="email">
+                    </div>
+                    <div class="fg">
+                        <label for="regUsername">Username</label>
+                        <input id="regUsername" autocomplete="username">
+                    </div>
+                    <div class="fg">
+                        <label for="regPassword">Password (8+ characters)</label>
+                        <input id="regPassword" type="password" autocomplete="new-password">
+                    </div>
+                </div>
+                <div id="guardianBox" class="hidden">
+                <p class="note" id="guardianNote" style="font-weight:600;color:var(--gd);margin:0 0 10px"></p>
+                 <div class="form-grid">
+             <div class="fg full">
+            <label for="regGuardianName">Parent or guardian full name</label>
+            <input id="regGuardianName" autocomplete="off">
+        </div>
+        <div class="fg">
+            <label for="regGuardianRelationship">Relationship</label>
+            <select id="regGuardianRelationship">
+                <option value="">Choose...</option>
+                <option>Parent</option>
+                <option>Guardian</option>
+                <option>Grandparent</option>
+                <option>Sibling</option>
+                <option>Relative</option>
+            </select>
+        </div>
+        <div class="fg">
+            <label for="regGuardianContact">Guardian contact number</label>
+            <input id="regGuardianContact" placeholder="09171234567" inputmode="numeric" maxlength="11">
+        </div>
+    </div>
+</div>
+                <div class="err" id="registerError" role="alert"></div>
+                <button class="btn" id="registerButton">Create account</button>
+                <p class="note">Accounts for Admin, Doctor and Staff are created by the administrator.</p>
+            </div>
+        </section>
+    </main>
+
+    <script>
+        // ---- Clinic information. Edit these lists to change what the page shows. ----
+        // day: 0 = Sunday ... 6 = Saturday. Times use 24-hour format. open: null means closed.
+        const weeklySchedule = [
+            { day: 1, name: "Monday",    open: "08:00", close: "16:00" },
+            { day: 2, name: "Tuesday",   open: "08:00", close: "16:00" },
+            { day: 3, name: "Wednesday", open: "08:00", close: "16:00" },
+            { day: 4, name: "Thursday",  open: "08:00", close: "16:00" },
+            { day: 5, name: "Friday",    open: "08:00", close: "16:00" },
+            { day: 6, name: "Saturday",  open: "08:00", close: "12:00" },
+            { day: 0, name: "Sunday",    open: null,    close: null }
+        ];
+
+        const services = [
+            { name: "Check-up",      price: 300 },
+            { name: "X-ray",         price: 500 },
+            { name: "Urine Test",    price: 150 },
+            { name: "Blood Test",    price: 350 },
+            { name: "Getting Blood", price: 100 },
+            { name: "Getting Urine", price: 80 }
+        ];
+
+        function formatTime(text) {
+            const parts = text.split(":");
+            let hour = parseInt(parts[0], 10);
+            const suffix = hour >= 12 ? "pm" : "am";
+            hour = hour % 12;
+            if (hour === 0) { hour = 12; }
+            return hour + ":" + parts[1] + " " + suffix;
+        }
+
+        function minutesOf(text) {
+            const parts = text.split(":");
+            return parseInt(parts[0], 10) * 60 + parseInt(parts[1], 10);
+        }
+
+        function addCell(row, text, className) {
+            const cell = document.createElement("td");
+            if (className) { cell.className = className; }
+            cell.textContent = text;
+            row.appendChild(cell);
+        }
+
+        function buildHours() {
+            const body = document.getElementById("hoursBody");
+            const today = new Date().getDay();
+            weeklySchedule.forEach(function (entry) {
+                const row = document.createElement("tr");
+                if (entry.day === today) { row.classList.add("today"); }
+                if (entry.open === null) { row.classList.add("closed-day"); }
+                addCell(row, entry.name);
+                addCell(row, entry.open === null
+                    ? "Closed"
+                    : formatTime(entry.open) + " to " + formatTime(entry.close), "r");
+                body.appendChild(row);
+            });
+        }
+
+        function buildServices() {
+            const body = document.getElementById("servicesBody");
+            services.forEach(function (service) {
+                const row = document.createElement("tr");
+                addCell(row, service.name);
+                addCell(row, "₱" + service.price.toLocaleString("en-PH"), "r");
+                body.appendChild(row);
+            });
+        }
+
+        function showOpenStatus() {
+            const badge = document.getElementById("statusBadge");
+            const text = document.getElementById("statusText");
+            const now = new Date();
+            const todayEntry = weeklySchedule.find(function (entry) { return entry.day === now.getDay(); });
+            const nowMinutes = now.getHours() * 60 + now.getMinutes();
+            const isOpen = todayEntry.open !== null &&
+                nowMinutes >= minutesOf(todayEntry.open) &&
+                nowMinutes < minutesOf(todayEntry.close);
+
+            badge.className = "status " + (isOpen ? "open" : "closed");
+            text.textContent = isOpen
+                ? "Open now until " + formatTime(todayEntry.close)
+                : "Closed right now";
+        }
+
+        buildHours();
+        buildServices();
+        showOpenStatus();
+
+        // ---- Sign in and create account ----
+
+        // Today's date in the computer's local time, as YYYY-MM-DD.
+        function todayText() {
+            const now = new Date();
+            const month = String(now.getMonth() + 1).padStart(2, "0");
+            const day = String(now.getDate()).padStart(2, "0");
+            return now.getFullYear() + "-" + month + "-" + day;
+        }
+
+        document.getElementById("regBirthDate").max = todayText();
+
+        function setMode(mode) {
+            const isSignIn = mode === "signin";
+            document.getElementById("modeSignIn").classList.toggle("on", isSignIn);
+            document.getElementById("modeSignUp").classList.toggle("on", !isSignIn);
+            document.getElementById("signInForm").classList.toggle("hidden", !isSignIn);
+            document.getElementById("signUpForm").classList.toggle("hidden", isSignIn);
+            document.getElementById("formTitle").textContent = isSignIn ? "Sign in" : "Create a patient account";
+            document.getElementById("formHint").textContent = isSignIn
+                ? "Enter your username and password. Staff and patients sign in here."
+                : "Register once, then sign in with your username and password.";
+        }
+
+        async function postJson(url, body) {
+            const response = await fetch(url, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(body)
+            });
+            let reply = {};
+            try {
+                reply = await response.json();
+            } catch (error) {
+                throw new Error("The server did not answer. Check that Apache and MySQL are running in XAMPP.");
+            }
+            if (!response.ok || reply.success === false) {
+                throw new Error(reply.message || "Something went wrong. Please try again.");
+            }
+            return reply;
+        }
+
+        async function signIn() {
+            const errorBox = document.getElementById("signInError");
+            const passwordBox = document.getElementById("passwordInput");
+            errorBox.textContent = "";
+
+            const username = document.getElementById("usernameInput").value.trim();
+            const password = passwordBox.value;
+            if (username === "" || password === "") {
+                errorBox.textContent = "Please enter your username and password.";
+                return;
+            }
+
+            try {
+                const reply = await postJson("api/sign-in.php", { username: username, password: password });
+
+                // The staff pages check this browser-side session (AuthService), so set it for staff.
+                if (reply.area === "staff") {
+                    sessionStorage.setItem("dmcv2_session", JSON.stringify({
+                        username: reply.user.username,
+                        lastActivity: Date.now(),
+                        token: ""
+                    }));
+                }
+                window.location.href = reply.redirect;
+            } catch (error) {
+                passwordBox.value = "";
+                errorBox.textContent = error.message;
+            }
+        }
+
+            // The guardian rule. Change 18 to 17 if only under-18s need a guardian.
+            const GUARDIAN_AGE_LIMIT = 18;
+
+            function ageFromBirth(text) {
+             if (!text) { return null; }
+                const birth = new Date(text + "T00:00:00");
+                const now = new Date();
+             let age = now.getFullYear() - birth.getFullYear();
+             const monthDiff = now.getMonth() - birth.getMonth();
+             if (monthDiff < 0 || (monthDiff === 0 && now.getDate() < birth.getDate())) {
+        age = age - 1;
+             }
+            return age;
+        }
+
+            // Shows the guardian section automatically when the birth date makes the patient 18 or younger.
+            function updateGuardianFields() {
+                const age = ageFromBirth(document.getElementById("regBirthDate").value);
+                
+                const needed = age !== null && age >= 0 && age <= GUARDIAN_AGE_LIMIT;
+                document.getElementById("guardianBox").classList.toggle("hidden", !needed);
+                    document.getElementById("guardianNote").textContent = needed
+                    ? "This patient is " + age + " year(s) old, so a parent or guardian is required."
+                : "";
+                }
+
+    async function registerPatient() {
+    const errorBox = document.getElementById("registerError");
+    errorBox.style.color = "";
+    errorBox.textContent = "";
+
+    const birthDate = document.getElementById("regBirthDate").value;
+    if (birthDate === "") {
+        errorBox.textContent = "Date of birth is required.";
+        return;
+    }
+    
+    if (birthDate > todayText()) {
+        errorBox.textContent = "Date of birth cannot be in the future.";
+        return;
+    }
+    
+
+    const body = {
+        fullName: document.getElementById("regFullName").value.trim(),
+        birthDate: birthDate,
+        gender: document.getElementById("regGender").value,
+        contactNumber: document.getElementById("regContact").value.trim(),
+        email: document.getElementById("regEmail").value.trim(),
+        username: document.getElementById("regUsername").value.trim(),
+        password: document.getElementById("regPassword").value,
+        guardianName: document.getElementById("regGuardianName").value.trim(),
+        guardianContact: document.getElementById("regGuardianContact").value.trim(),
+        guardianRelationship: document.getElementById("regGuardianRelationship").value
+    };
+    try {
+        const reply = await postJson("patient/api/account.php?action=register", body);
+        errorBox.style.color = "var(--g)";
+        errorBox.textContent = reply.message;
+        document.getElementById("registerButton").disabled = true;
+             } catch (error) {
+        errorBox.textContent = error.message;
+         }
+        }
+
+        document.getElementById("modeSignIn").addEventListener("click", function () { setMode("signin"); });
+        document.getElementById("modeSignUp").addEventListener("click", function () { setMode("signup"); });
+        document.getElementById("signInButton").addEventListener("click", signIn);
+        document.getElementById("usernameInput").addEventListener("keydown", function (event) {
+            if (event.key === "Enter") { signIn(); }
+        });
+        document.getElementById("passwordInput").addEventListener("keydown", function (event) {
+            if (event.key === "Enter") { signIn(); }
+        });
+        document.getElementById("registerButton").addEventListener("click", registerPatient);
+        
+        document.getElementById("regBirthDate").addEventListener("input", updateGuardianFields);
+            document.getElementById("regBirthDate").addEventListener("change", updateGuardianFields);
+            updateGuardianFields();
+    </script>
 </body>
 </html>

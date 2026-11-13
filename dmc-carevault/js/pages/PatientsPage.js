@@ -170,7 +170,7 @@ class PatientsPage {
         const yesNoOptions = formBuilder.createOptionsFromTexts(["No", "Yes"]);
         const bloodTypeOptions = formBuilder.createOptionsFromTexts(["Unknown", "A+", "A-", "B+", "B-", "AB+", "AB-", "O+", "O-"]);
         const relationshipOptions = [{ value: "", label: "Select relationship" }].concat(
-            formBuilder.createOptionsFromTexts(["Parent", "Spouse", "Child", "Sibling", "Grandparent", "Relative", "Guardian", "Friend", "Other"]));
+            formBuilder.createOptionsFromTexts(["Parent", "Spouse", "Child", "Sibling", "Grandparent", "Relative", "Guardian"]));
 
         // Characters that are removed while typing: anything that is not a letter, space, . ' or -
         const blockedInNames = /[^\p{L}\p{M}\s.'\u2019-]/gu;
