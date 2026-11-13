@@ -3,7 +3,7 @@
 -- https://www.phpmyadmin.net/
 --
 -- Host: 127.0.0.1
--- Generation Time: Oct 30, 2026 at 04:07 AM
+-- Generation Time: Nov 13, 2026 at 03:21 PM
 -- Server version: 10.4.32-MariaDB
 -- PHP Version: 8.2.12
 
@@ -20,6 +20,43 @@ SET time_zone = "+00:00";
 --
 -- Database: `dmc_carevault`
 --
+
+-- --------------------------------------------------------
+
+--
+-- Table structure for table `archived_prescriptions`
+--
+
+CREATE TABLE `archived_prescriptions` (
+  `id` varchar(10) NOT NULL,
+  `patient_id` varchar(10) DEFAULT NULL,
+  `patient_name` varchar(150) NOT NULL,
+  `age_text` varchar(30) DEFAULT NULL,
+  `sex` varchar(10) DEFAULT NULL,
+  `address` varchar(255) DEFAULT NULL,
+  `prescribed_date` date NOT NULL,
+  `doctor_name` varchar(100) NOT NULL,
+  `note` text DEFAULT NULL,
+  `entered_by` varchar(20) NOT NULL,
+  `entered_at` datetime NOT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- --------------------------------------------------------
+
+--
+-- Table structure for table `archived_prescription_items`
+--
+
+CREATE TABLE `archived_prescription_items` (
+  `id` int(11) NOT NULL,
+  `archived_id` varchar(10) NOT NULL,
+  `medicine_name` varchar(150) NOT NULL,
+  `dosage` varchar(50) DEFAULT NULL,
+  `frequency` varchar(100) DEFAULT NULL,
+  `duration` varchar(50) DEFAULT NULL,
+  `quantity` varchar(30) DEFAULT NULL,
+  `instructions` varchar(255) DEFAULT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- --------------------------------------------------------
 
@@ -338,7 +375,225 @@ INSERT INTO `audit_logs` (`id`, `created_at`, `username`, `role`, `action_name`,
 (295, '2026-10-30 11:01:29', 'aikiro', 'Doctor', 'Consultation finished', 'A-0012 (P-0001)'),
 (296, '2026-10-30 11:01:34', 'admin', 'Admin', 'Login', 'Signed in'),
 (297, '2026-10-30 11:01:39', 'admin', 'Admin', 'Bill choices saved', 'B-0009'),
-(298, '2026-10-30 11:01:39', 'admin', 'Admin', 'Bill paid (cash)', 'B-0009 total 100');
+(298, '2026-10-30 11:01:39', 'admin', 'Admin', 'Bill paid (cash)', 'B-0009 total 100'),
+(299, '2026-11-03 10:55:39', 'admin', 'Admin', 'Login', 'Signed in'),
+(300, '2026-11-03 10:55:53', 'admin', 'Admin', 'Login', 'Signed in'),
+(301, '2026-11-03 10:55:58', 'doctor', 'Doctor', 'Login', 'Signed in'),
+(302, '2026-11-03 10:56:02', 'staff', 'Staff', 'Login', 'Signed in'),
+(303, '2026-11-03 10:56:19', 'admin', 'Admin', 'Login', 'Signed in'),
+(304, '2026-11-03 10:57:11', 'admin', 'Admin', 'Medication added', 'M-0003 pebolstata (pebolstata)'),
+(305, '2026-11-03 11:18:21', 'admin', 'Admin', 'Login', 'Signed in'),
+(306, '2026-11-03 11:18:45', 'admin', 'Admin', 'Appointment created', 'A-0013 (queue 1)'),
+(307, '2026-11-03 11:18:56', 'admin', 'Admin', 'Vital signs recorded', 'A-0013 (P-0002)'),
+(308, '2026-11-03 11:18:57', 'admin', 'Admin', 'Appointment status', 'A-0013 changed to In Consultation'),
+(309, '2026-11-03 11:19:06', 'doctor', 'Doctor', 'Login', 'Signed in'),
+(310, '2026-11-03 11:19:25', 'doctor', 'Doctor', 'Consultation created', 'C-0020'),
+(311, '2026-11-03 11:19:26', 'doctor', 'Doctor', 'Consultation finished', 'A-0013 (P-0002)'),
+(312, '2026-11-03 11:20:41', 'admin', 'Admin', 'Login', 'Signed in'),
+(313, '2026-11-03 11:20:52', 'admin', 'Admin', 'Doctor ready for patients', 'doctor'),
+(314, '2026-11-03 11:21:06', 'admin', 'Admin', 'Logout', 'Signed out'),
+(315, '2026-11-03 11:21:13', 'staff', 'Staff', 'Login', 'Signed in'),
+(316, '2026-11-03 11:21:28', 'admin', 'Admin', 'Login', 'Signed in'),
+(317, '2026-11-03 11:21:37', 'admin', 'Admin', 'Appointment created', 'A-0014 (queue 2)'),
+(318, '2026-11-03 11:21:40', 'admin', 'Admin', 'Appointment status', 'A-0014 changed to In Consultation'),
+(319, '2026-11-03 11:21:51', 'doctor', 'Doctor', 'Login', 'Signed in'),
+(320, '2026-11-03 11:22:35', 'doctor', 'Doctor', 'Consultation created', 'C-0021'),
+(321, '2026-11-03 11:22:35', 'doctor', 'Doctor', 'Consultation finished', 'A-0014 (P-0002)'),
+(322, '2026-11-03 11:23:07', 'admin', 'Admin', 'Login', 'Signed in'),
+(323, '2026-11-03 11:23:30', 'admin', 'Admin', 'Patient updated', 'P-0001'),
+(324, '2026-11-03 11:23:53', 'admin', 'Admin', 'Appointment created', 'A-0015 (queue 3)'),
+(325, '2026-11-03 11:24:08', 'admin', 'Admin', 'Test result recorded', 'T-0001 (Getting Urine)'),
+(326, '2026-11-03 11:24:08', 'admin', 'Admin', 'Test result saved', 'A-0015 Getting Urine'),
+(327, '2026-11-03 11:24:18', 'admin', 'Admin', 'Appointment status', 'A-0015 changed to In Consultation'),
+(328, '2026-11-03 11:36:50', 'admin', 'Admin', 'Appointment status', 'A-0015 changed to Completed'),
+(329, '2026-11-03 11:37:04', 'admin', 'Admin', 'Bill choices saved', 'B-0012'),
+(330, '2026-11-03 11:37:04', 'admin', 'Admin', 'Bill paid (cash)', 'B-0012 total 80'),
+(331, '2026-11-03 11:37:20', 'admin', 'Admin', 'Bill choices saved', 'B-0011'),
+(332, '2026-11-03 11:37:24', 'admin', 'Admin', 'Bill choices saved', 'B-0011'),
+(333, '2026-11-03 11:37:33', 'admin', 'Admin', 'Bill choices saved', 'B-0011'),
+(334, '2026-11-03 11:37:33', 'admin', 'Admin', 'Bill paid (cash)', 'B-0011 total 100'),
+(335, '2026-11-06 22:57:18', 'admin', 'Admin', 'Login', 'Signed in'),
+(336, '2026-11-06 22:57:41', 'admin', 'Admin', 'Medication updated', 'M-0001 pebolstat (pebolstat)'),
+(337, '2026-11-06 22:58:15', 'admin', 'Admin', 'Logout', 'Signed out'),
+(338, '2026-11-06 22:59:51', 'admin', 'Admin', 'Login', 'Signed in'),
+(339, '2026-11-06 23:02:29', 'admin', 'Admin', 'Medication updated', 'M-0001 pebolstat (pebolstat)'),
+(340, '2026-11-06 23:02:35', 'admin', 'Admin', 'Medication updated', 'M-0001 pebolstat (pebolstat)'),
+(341, '2026-11-06 23:02:44', 'admin', 'Admin', 'Medication updated', 'M-0001 pebolstat (pebolstat)'),
+(342, '2026-11-06 23:02:55', 'admin', 'Admin', 'Medication updated', 'M-0001 pebolstat (pebolstat)'),
+(343, '2026-11-06 23:04:28', 'admin', 'Admin', 'Medication updated', 'M-0001 pebolstat (pebolstat)'),
+(344, '2026-11-06 23:04:39', 'admin', 'Admin', 'Medication updated', 'M-0001 pebolstat (pebolstat)'),
+(345, '2026-11-06 23:04:41', 'admin', 'Admin', 'Medication archived', 'M-0001'),
+(346, '2026-11-06 23:08:56', 'admin', 'Admin', 'Logout', 'Signed out'),
+(347, '2026-11-06 23:09:02', 'doctor', 'Doctor', 'Login', 'Signed in'),
+(348, '2026-11-06 23:14:48', 'doctor', 'Doctor', 'Doctor stopped accepting patients', 'doctor'),
+(349, '2026-11-06 23:14:48', 'doctor', 'Doctor', 'Logout', 'Signed out'),
+(350, '2026-11-06 23:14:53', 'staff', 'Staff', 'Login', 'Signed in'),
+(351, '2026-11-06 23:15:56', 'staff', 'Staff', 'Bill choices saved', 'B-0008'),
+(352, '2026-11-06 23:16:00', 'staff', 'Staff', 'Bill choices saved', 'B-0008'),
+(353, '2026-11-06 23:16:19', 'staff', 'Staff', 'Bill choices saved', 'B-0003'),
+(354, '2026-11-06 23:16:26', 'staff', 'Staff', 'Logout', 'Signed out'),
+(355, '2026-11-06 23:16:37', 'admin', 'Admin', 'Login', 'Signed in'),
+(356, '2026-11-06 23:16:43', 'doctor', 'Doctor', 'Login', 'Signed in'),
+(357, '2026-11-06 23:16:56', 'doctor', 'Doctor', 'Logout', 'Signed out'),
+(358, '2026-11-06 23:16:59', 'admin', 'Admin', 'Login', 'Signed in'),
+(359, '2026-11-06 23:17:05', 'staff', 'Staff', 'Login', 'Signed in'),
+(360, '2026-11-06 23:17:12', 'staff', 'Staff', 'Logout', 'Signed out'),
+(361, '2026-11-06 23:17:15', 'admin', 'Admin', 'Login', 'Signed in'),
+(362, '2026-11-06 23:17:38', 'staff', 'Staff', 'Login', 'Signed in'),
+(363, '2026-11-06 23:19:47', 'admin', 'Admin', 'Login', 'Signed in'),
+(364, '2026-11-06 23:20:20', 'admin', 'Admin', 'Appointment created', 'A-0016 (queue 1)'),
+(365, '2026-11-06 23:20:26', 'admin', 'Admin', 'Logout', 'Signed out'),
+(366, '2026-11-06 23:20:31', 'admin', 'Admin', 'Login', 'Signed in'),
+(367, '2026-11-06 23:20:44', 'admin', 'Admin', 'Appointment updated', 'A-0016'),
+(368, '2026-11-06 23:21:04', 'admin', 'Admin', 'Test result recorded', 'T-0002 (Getting Blood)'),
+(369, '2026-11-06 23:21:04', 'admin', 'Admin', 'Test result saved', 'A-0016 Getting Blood'),
+(370, '2026-11-06 23:21:15', 'admin', 'Admin', 'Vital signs recorded', 'A-0016 (P-0004)'),
+(371, '2026-11-06 23:21:21', 'admin', 'Admin', 'Appointment updated', 'A-0016'),
+(372, '2026-11-06 23:21:27', 'aikiro', 'Doctor', 'Login', 'Signed in'),
+(373, '2026-11-06 23:21:31', 'aikiro', 'Doctor', 'Doctor ready for patients', 'aikiro'),
+(374, '2026-11-06 23:21:39', 'aikiro', 'Doctor', 'Doctor stopped accepting patients', 'aikiro'),
+(375, '2026-11-06 23:21:41', 'aikiro', 'Doctor', 'Doctor ready for patients', 'aikiro'),
+(376, '2026-11-06 23:21:50', 'aikiro', 'Doctor', 'Doctor stopped accepting patients', 'aikiro'),
+(377, '2026-11-06 23:21:50', 'aikiro', 'Doctor', 'Logout', 'Signed out'),
+(378, '2026-11-06 23:21:57', 'doctor', 'Doctor', 'Login', 'Signed in'),
+(379, '2026-11-06 23:21:59', 'doctor', 'Doctor', 'Doctor ready for patients', 'doctor'),
+(380, '2026-11-06 23:22:13', 'admin', 'Admin', 'Appointment status', 'A-0016 changed to In Consultation'),
+(381, '2026-11-06 23:22:17', 'doctor', 'Doctor', 'Doctor stopped accepting patients', 'doctor'),
+(382, '2026-11-06 23:22:23', 'doctor', 'Doctor', 'Logout', 'Signed out'),
+(383, '2026-11-06 23:22:31', 'aikiro', 'Doctor', 'Login', 'Signed in'),
+(384, '2026-11-06 23:22:35', 'admin', 'Admin', 'Appointment updated', 'A-0016'),
+(385, '2026-11-06 23:22:38', 'aikiro', 'Doctor', 'Logout', 'Signed out'),
+(386, '2026-11-06 23:22:45', 'doctor', 'Doctor', 'Login', 'Signed in'),
+(387, '2026-11-06 23:23:00', 'admin', 'Admin', 'Appointment updated', 'A-0016'),
+(388, '2026-11-06 23:23:08', 'admin', 'Admin', 'Appointment updated', 'A-0016'),
+(389, '2026-11-06 23:23:14', 'doctor', 'Doctor', 'Logout', 'Signed out'),
+(390, '2026-11-06 23:23:20', 'aikiro', 'Doctor', 'Login', 'Signed in'),
+(391, '2026-11-06 23:23:34', 'aikiro', 'Doctor', 'Consultation finished', 'A-0016 (P-0004)'),
+(392, '2026-11-06 23:23:53', 'aikiro', 'Doctor', 'Prescription created', 'RX-0004'),
+(393, '2026-11-06 23:26:05', 'admin', 'Admin', 'Bill choices saved', 'B-0013'),
+(394, '2026-11-06 23:26:11', 'admin', 'Admin', 'Bill choices saved', 'B-0013'),
+(395, '2026-11-06 23:26:11', 'admin', 'Admin', 'Bill paid (cash)', 'B-0013 total 300'),
+(396, '2026-11-06 23:26:25', 'admin', 'Admin', 'Bill choices saved', 'B-0010'),
+(397, '2026-11-06 23:26:25', 'admin', 'Admin', 'Bill paid (cash)', 'B-0010 total 500'),
+(398, '2026-11-07 14:44:30', 'admin', 'Admin', 'Login', 'Signed in'),
+(399, '2026-11-07 14:44:46', 'doctor', 'Doctor', 'Login', 'Signed in'),
+(400, '2026-11-07 14:45:00', 'admin', 'Admin', 'Logout', 'Signed out'),
+(401, '2026-11-07 14:45:04', 'yuki', 'Admin', 'Login', 'Signed in'),
+(402, '2026-11-07 14:56:51', 'doctor', 'Doctor', 'Logout', 'Signed out'),
+(403, '2026-11-07 14:56:58', 'doctor', 'Doctor', 'Login', 'Signed in'),
+(404, '2026-11-07 14:57:04', 'staff', 'Staff', 'Login', 'Signed in'),
+(405, '2026-11-07 14:59:26', 'yuki', 'Admin', 'Medication added', 'M-0004 paracetamol (paracetamol)'),
+(406, '2026-11-07 14:59:40', 'yuki', 'Admin', 'Medication updated', 'M-0004 paracetamol (paracetamol)'),
+(407, '2026-11-07 14:59:52', 'yuki', 'Admin', 'Medication updated', 'M-0004 paracetamol (paracetamol)'),
+(408, '2026-11-07 15:00:24', 'yuki', 'Admin', 'Medication updated', 'M-0002 paracetamol (paracetamol)'),
+(409, '2026-11-07 15:00:45', 'yuki', 'Admin', 'Medication updated', 'M-0004 paracetamol (paracetamol)'),
+(410, '2026-11-07 15:05:28', 'yuki', 'Admin', 'Medication added', 'M-0005 pebolstat (pebolstat)'),
+(411, '2026-11-07 15:07:46', 'doctor', 'Doctor', 'Doctor ready for patients', 'doctor'),
+(412, '2026-11-07 15:07:53', 'doctor', 'Doctor', 'Doctor stopped accepting patients', 'doctor'),
+(413, '2026-11-07 15:07:54', 'doctor', 'Doctor', 'Doctor ready for patients', 'doctor'),
+(414, '2026-11-07 15:07:56', 'doctor', 'Doctor', 'Doctor stopped accepting patients', 'doctor'),
+(415, '2026-11-07 15:11:37', 'yuki', 'Admin', 'Appointment created', 'A-0017 (queue 1)'),
+(416, '2026-11-07 15:11:39', 'yuki', 'Admin', 'Appointment status', 'A-0017 changed to Missing'),
+(417, '2026-11-07 15:11:48', 'yuki', 'Admin', 'Appointment created', 'A-0018 (queue 2)'),
+(418, '2026-11-07 15:11:52', 'yuki', 'Admin', 'Appointment status', 'A-0017 changed to Waiting'),
+(419, '2026-11-07 15:11:58', 'yuki', 'Admin', 'Appointment status', 'A-0017 changed to Missing'),
+(420, '2026-11-07 15:12:00', 'yuki', 'Admin', 'Appointment status', 'A-0017 changed to Waiting'),
+(421, '2026-11-07 15:12:02', 'yuki', 'Admin', 'Appointment status', 'A-0017 changed to Missing'),
+(422, '2026-11-07 15:15:22', 'yuki', 'Admin', 'Test result recorded', 'T-0003 (Getting Urine)'),
+(423, '2026-11-07 15:15:22', 'yuki', 'Admin', 'Test result saved', 'A-0018 Getting Urine'),
+(424, '2026-11-07 15:15:42', 'yuki', 'Admin', 'Vital signs recorded', 'A-0018 (P-0004)'),
+(425, '2026-11-07 15:16:33', 'yuki', 'Admin', 'Appointment status', 'A-0018 changed to In Consultation'),
+(426, '2026-11-07 15:16:53', 'doctor', 'Doctor', 'Logout', 'Signed out'),
+(427, '2026-11-07 15:17:00', 'aikiro', 'Doctor', 'Login', 'Signed in'),
+(428, '2026-11-07 15:21:17', 'yuki', 'Admin', 'Appointment status', 'A-0017 changed to Waiting'),
+(429, '2026-11-07 15:24:29', 'aikiro', 'Doctor', 'Consultation created', 'C-0022'),
+(430, '2026-11-07 15:24:30', 'aikiro', 'Doctor', 'Consultation created', 'C-0022'),
+(431, '2026-11-07 15:25:28', 'aikiro', 'Doctor', 'Consultation created', 'C-0022'),
+(432, '2026-11-07 15:25:28', 'aikiro', 'Doctor', 'Consultation finished', 'A-0018 (P-0004)'),
+(433, '2026-11-07 15:29:54', 'aikiro', 'Doctor', 'Logout', 'Signed out'),
+(434, '2026-11-07 15:29:59', 'doctor', 'Doctor', 'Login', 'Signed in'),
+(435, '2026-11-07 15:40:41', 'yuki', 'Admin', 'Vital signs recorded', 'A-0017 (P-0002)'),
+(436, '2026-11-07 15:40:44', 'yuki', 'Admin', 'Appointment status', 'A-0017 changed to In Consultation'),
+(437, '2026-11-07 16:01:43', 'admin', 'unknown', 'Login failed', 'Wrong username or password'),
+(438, '2026-11-07 16:01:56', 'admin', 'Admin', 'Login', 'Signed in'),
+(439, '2026-11-07 16:02:12', 'doctor', 'Doctor', 'Login', 'Signed in'),
+(440, '2026-11-07 16:19:01', 'admin', 'Admin', 'Login', 'Signed in'),
+(441, '2026-11-07 16:20:11', 'doctor', 'Doctor', 'Consultation created', 'C-0023'),
+(442, '2026-11-07 16:20:22', 'doctor', 'Doctor', 'Consultation finished', 'A-0017 (P-0002)'),
+(443, '2026-11-07 16:20:48', 'doctor', 'Doctor', 'Doctor ready for patients', 'doctor'),
+(444, '2026-11-07 16:25:44', 'doctor', 'Doctor', 'Doctor stopped accepting patients', 'doctor'),
+(445, '2026-11-07 16:27:11', 'doctor', 'Doctor', 'Consultation created', 'C-0024'),
+(446, '2026-11-07 16:27:47', 'doctor', 'Doctor', 'Consultation updated', 'C-0024'),
+(447, '2026-11-07 16:28:36', 'doctor', 'Doctor', 'Consultation updated', 'C-0023'),
+(448, '2026-11-07 16:28:41', 'doctor', 'Doctor', 'Doctor ready for patients', 'doctor'),
+(449, '2026-11-07 16:28:48', 'doctor', 'Doctor', 'Doctor stopped accepting patients', 'doctor'),
+(450, '2026-11-07 16:28:49', 'doctor', 'Doctor', 'Doctor ready for patients', 'doctor'),
+(451, '2026-11-07 16:28:53', 'doctor', 'Doctor', 'Doctor stopped accepting patients', 'doctor'),
+(452, '2026-11-07 16:28:54', 'doctor', 'Doctor', 'Doctor ready for patients', 'doctor'),
+(453, '2026-11-07 16:29:06', 'doctor', 'Doctor', 'Doctor stopped accepting patients', 'doctor'),
+(454, '2026-11-07 16:29:07', 'doctor', 'Doctor', 'Doctor ready for patients', 'doctor'),
+(455, '2026-11-07 17:06:39', 'admin', 'Admin', 'Login', 'Signed in'),
+(456, '2026-11-07 17:06:49', 'doctor', 'unknown', 'Login failed', 'Wrong username or password'),
+(457, '2026-11-07 17:06:53', 'doctor', 'Doctor', 'Login', 'Signed in'),
+(458, '2026-11-07 17:50:50', 'admin', 'Admin', 'Login', 'Signed in'),
+(459, '2026-11-07 17:50:57', 'admin', 'Admin', 'Logout', 'Signed out'),
+(460, '2026-11-07 17:51:01', 'admin', 'Admin', 'Login', 'Signed in'),
+(461, '2026-11-07 17:51:33', 'doctor', 'Doctor', 'Login', 'Signed in'),
+(462, '2026-11-07 17:52:16', 'doctor', 'Doctor', 'Doctor stopped accepting patients', 'doctor'),
+(463, '2026-11-07 17:54:55', 'doctor', 'Doctor', 'Consultation updated', 'C-0001'),
+(464, '2026-11-07 17:55:02', 'doctor', 'Doctor', 'Consultation updated', 'C-0001'),
+(465, '2026-11-07 17:56:19', 'doctor', 'Doctor', 'Doctor ready for patients', 'doctor'),
+(466, '2026-11-07 17:56:25', 'doctor', 'Doctor', 'Doctor stopped accepting patients', 'doctor'),
+(467, '2026-11-13 12:29:29', 'admin', 'Admin', 'Login', 'Signed in'),
+(468, '2026-11-13 12:31:12', 'doctor', 'Doctor', 'Login', 'Signed in'),
+(469, '2026-11-13 12:31:43', 'staff', 'Staff', 'Login', 'Signed in'),
+(470, '2026-11-13 12:38:42', 'doctor', 'Doctor', 'Logout', 'Signed out'),
+(471, '2026-11-13 12:38:44', 'staff', 'Staff', 'Logout', 'Signed out'),
+(472, '2026-11-13 12:38:46', 'admin', 'Admin', 'Logout', 'Signed out'),
+(473, '2026-11-13 13:09:44', 'admin', 'Admin', 'Login', 'Signed in'),
+(474, '2026-11-13 13:12:52', 'admin', 'Admin', 'Logout', 'Signed out'),
+(475, '2026-11-13 13:13:20', 'admin', 'Admin', 'Login', 'Signed in'),
+(476, '2026-11-13 13:18:28', 'admin', 'Admin', 'Patient registered', 'P-538938 aikiro commandante gallares'),
+(477, '2026-11-13 13:21:18', 'admin', 'Admin', 'Appointment created', 'A-0019 (queue 1)'),
+(478, '2026-11-13 13:22:01', 'admin', 'Admin', 'Appointment status', 'A-0019 changed to Missing'),
+(479, '2026-11-13 13:24:51', 'admin', 'Admin', 'Appointment status', 'A-0019 changed to Waiting'),
+(480, '2026-11-13 13:33:22', 'admin', 'Admin', 'Medication added', 'M-0006 rosobastatin (roso)'),
+(481, '2026-11-13 13:39:39', 'admin', 'Admin', 'User deactivated', 'aikiro'),
+(482, '2026-11-13 13:41:22', 'admin', 'Admin', 'Medication archived', 'M-0005'),
+(483, '2026-11-13 13:42:00', 'admin', 'Admin', 'Logout', 'Signed out'),
+(484, '2026-11-13 13:43:03', 'doctor', 'Doctor', 'Login', 'Signed in'),
+(485, '2026-11-13 13:45:39', 'doctor', 'Doctor', 'Logout', 'Signed out'),
+(486, '2026-11-13 13:45:52', 'staff', 'Staff', 'Login', 'Signed in'),
+(487, '2026-11-13 13:46:45', 'staff', 'Staff', 'Vital signs recorded', 'A-0019 (P-117829)'),
+(488, '2026-11-13 13:46:50', 'staff', 'Staff', 'Appointment status', 'A-0019 changed to In Consultation'),
+(489, '2026-11-13 13:46:56', 'staff', 'Staff', 'Logout', 'Signed out'),
+(490, '2026-11-13 13:47:09', 'doctor', 'Doctor', 'Login', 'Signed in'),
+(491, '2026-11-13 13:48:28', 'doctor', 'Doctor', 'Consultation created', 'C-0025'),
+(492, '2026-11-13 13:48:28', 'doctor', 'Doctor', 'Consultation finished', 'A-0019 (P-117829)'),
+(493, '2026-11-13 13:50:59', 'doctor', 'Doctor', 'Prescription created', 'RX-0005'),
+(494, '2026-11-13 13:52:09', 'doctor', 'Doctor', 'Logout', 'Signed out'),
+(495, '2026-11-13 13:52:34', 'staff', 'Staff', 'Login', 'Signed in'),
+(496, '2026-11-13 13:55:12', 'staff', 'Staff', 'Bill choices saved', 'B-0016'),
+(497, '2026-11-13 13:55:13', 'staff', 'Staff', 'Bill paid (cash)', 'B-0016 total 240 (Senior Citizen discount 60)'),
+(498, '2026-11-13 13:55:38', 'staff', 'Staff', 'Logout', 'Signed out'),
+(499, '2026-11-13 14:01:09', 'admin', 'Admin', 'Login', 'Signed in'),
+(500, '2026-11-13 17:36:50', 'admin', 'Admin', 'Login', 'Signed in'),
+(501, '2026-11-13 17:36:53', 'admin', 'Admin', 'Logout', 'Signed out'),
+(502, '2026-11-13 17:44:05', 'admin', 'Admin', 'Login', 'Signed in'),
+(503, '2026-11-13 17:44:07', 'admin', 'Admin', 'Logout', 'Signed out'),
+(504, '2026-11-13 17:44:15', 'doctor', 'Doctor', 'Login', 'Signed in'),
+(505, '2026-11-13 17:44:16', 'doctor', 'Doctor', 'Logout', 'Signed out'),
+(506, '2026-11-13 18:02:28', 'admin', 'Admin', 'Login', 'Signed in'),
+(507, '2026-11-13 18:14:58', 'admin', 'Admin', 'Logout', 'Signed out'),
+(508, '2026-11-13 18:29:34', 'yuyi', 'unknown', 'Login failed', 'Wrong username or password'),
+(509, '2026-11-13 18:29:45', 'admin', 'Admin', 'Login', 'Signed in'),
+(510, '2026-11-13 18:29:55', 'admin', 'Admin', 'User activated', 'aikiro'),
+(511, '2026-11-13 18:31:16', 'admin', 'Admin', 'Logout', 'Signed out'),
+(512, '2026-11-13 18:34:25', 'admin', 'Admin', 'Login', 'Signed in'),
+(513, '2026-11-13 18:41:57', 'admin', 'Admin', 'Logout', 'Signed out'),
+(514, '2026-11-13 18:51:40', 'admin', 'Admin', 'Login', 'Signed in'),
+(515, '2026-11-13 19:15:44', 'admin', 'Admin', 'Logout', 'Signed out'),
+(516, '2026-11-13 19:15:53', 'admin', 'Admin', 'Login', 'Signed in');
 
 -- --------------------------------------------------------
 
@@ -380,7 +635,14 @@ INSERT INTO `bills` (`id`, `queue_entry_id`, `patient_id`, `doctor_username`, `v
 ('B-0006', 'A-0009', 'P-853817', 'doctor', '2026-10-30', '2026-10-30 10:15:42', 'Paid', 64, 'Cash', 64, 0, '2026-10-30', '2026-10-30 10:15:59', 'admin', 80, 'PWD', '8559595123123123132132132', 16),
 ('B-0007', 'A-0010', 'P-0001', 'doctor', '2026-10-30', '2026-10-30 10:50:13', 'Open', 0, NULL, NULL, NULL, NULL, NULL, NULL, 0, 'None', NULL, 0),
 ('B-0008', 'A-0011', 'P-0001', 'doctor', '2026-10-30', '2026-10-30 10:50:13', 'Open', 0, NULL, NULL, NULL, NULL, NULL, NULL, 0, 'None', NULL, 0),
-('B-0009', 'A-0012', 'P-0001', 'aikiro', '2026-10-30', '2026-10-30 11:01:35', 'Paid', 100, 'Cash', 100, 0, '2026-10-30', '2026-10-30 11:01:39', 'admin', 100, 'None', NULL, 0);
+('B-0009', 'A-0012', 'P-0001', 'aikiro', '2026-10-30', '2026-10-30 11:01:35', 'Paid', 100, 'Cash', 100, 0, '2026-10-30', '2026-10-30 11:01:39', 'admin', 100, 'None', NULL, 0),
+('B-0010', 'A-0013', 'P-0002', 'doctor', '2026-11-03', '2026-11-03 11:36:57', 'Paid', 500, 'Cash', 500, 0, '2026-11-06', '2026-11-06 23:26:25', 'admin', 500, 'None', NULL, 0),
+('B-0011', 'A-0014', 'P-0002', 'doctor', '2026-11-03', '2026-11-03 11:36:57', 'Paid', 100, 'Cash', 100, 0, '2026-11-03', '2026-11-03 11:37:33', 'admin', 100, 'None', NULL, 0),
+('B-0012', 'A-0015', 'P-0002', 'doctor', '2026-11-03', '2026-11-03 11:36:57', 'Paid', 80, 'Cash', 80, 0, '2026-11-03', '2026-11-03 11:37:04', 'admin', 80, 'None', NULL, 0),
+('B-0013', 'A-0016', 'P-0004', 'aikiro', '2026-11-06', '2026-11-06 23:23:38', 'Paid', 300, 'Cash', 300, 0, '2026-11-06', '2026-11-06 23:26:11', 'admin', 300, 'None', NULL, 0),
+('B-0014', 'A-0018', 'P-0004', 'aikiro', '2026-11-07', '2026-11-07 15:30:28', 'Open', 0, NULL, NULL, NULL, NULL, NULL, NULL, 0, 'None', NULL, 0),
+('B-0015', 'A-0017', 'P-0002', 'doctor', '2026-11-07', '2026-11-07 16:20:38', 'Open', 0, NULL, NULL, NULL, NULL, NULL, NULL, 0, 'None', NULL, 0),
+('B-0016', 'A-0019', 'P-117829', 'doctor', '2026-11-13', '2026-11-13 13:52:45', 'Paid', 240, 'Cash', 240, 0, '2026-11-13', '2026-11-13 13:55:12', 'staff', 300, 'Senior Citizen', 'OSCA-000126', 60);
 
 -- --------------------------------------------------------
 
@@ -410,7 +672,10 @@ CREATE TABLE `bill_items` (
 INSERT INTO `bill_items` (`id`, `bill_id`, `item_type`, `name`, `prescription_id`, `medication_id`, `quantity`, `unit_price`, `amount`, `decision`, `sellable`, `note`) VALUES
 ('RX-0001-1', 'B-0006', 'medicine', 'awdawd', 'RX-0001', NULL, 11, 0, 0, 'Not buying', 0, 'Not in the clinic medicine list'),
 ('RX-0002-1', 'B-0006', 'medicine', 'dawdawda', 'RX-0002', NULL, 1, 0, 0, 'Not buying', 0, 'Not in the clinic medicine list'),
-('RX-0003-1', 'B-0005', 'medicine', 'paracetamol (paracetamol) 50 Tablet', 'RX-0003', 'M-0002', 1, 30, 30, 'Buy here', 1, NULL),
+('RX-0003-1', 'B-0005', 'medicine', 'paracetamol (paracetamol) 50 Tablet', 'RX-0003', NULL, 1, 0, 0, 'Not buying', 0, 'Not in the clinic medicine list'),
+('RX-0004-1', 'B-0013', 'medicine', 'pebolstata (pebolstata) 500 Tablet', 'RX-0004', 'M-0003', 4, 0, 0, 'Not buying', 0, 'Expired'),
+('RX-0005-1', 'B-0016', 'medicine', 'paracetamol (paracetamol) 500 Tablet', 'RX-0005', 'M-0002', 15, 30, 450, 'Not buying', 1, NULL),
+('RX-0005-2', 'B-0016', 'medicine', 'bioflue', 'RX-0005', NULL, 2, 0, 0, 'Not buying', 0, 'Not in the clinic medicine list'),
 ('S-A-0001', 'B-0001', 'service', 'Check-up', NULL, NULL, 1, 300, 300, 'Included', 1, NULL),
 ('S-A-0002', 'B-0002', 'service', 'Blood Test', NULL, NULL, 1, 350, 350, 'Included', 1, NULL),
 ('S-A-0006', 'B-0003', 'service', 'Urine Test', NULL, NULL, 1, 150, 150, 'Included', 1, NULL),
@@ -419,7 +684,51 @@ INSERT INTO `bill_items` (`id`, `bill_id`, `item_type`, `name`, `prescription_id
 ('S-A-0009', 'B-0006', 'service', 'Getting Urine', NULL, NULL, 1, 80, 80, 'Included', 1, NULL),
 ('S-A-0010', 'B-0007', 'service', 'Blood Test', NULL, NULL, 1, 350, 350, 'Included', 1, NULL),
 ('S-A-0011', 'B-0008', 'service', 'Getting Urine', NULL, NULL, 1, 80, 80, 'Included', 1, NULL),
-('S-A-0012', 'B-0009', 'service', 'Getting Blood', NULL, NULL, 1, 100, 100, 'Included', 1, NULL);
+('S-A-0012', 'B-0009', 'service', 'Getting Blood', NULL, NULL, 1, 100, 100, 'Included', 1, NULL),
+('S-A-0013', 'B-0010', 'service', 'X-ray', NULL, NULL, 1, 500, 500, 'Included', 1, NULL),
+('S-A-0014', 'B-0011', 'service', 'Getting Blood', NULL, NULL, 1, 100, 100, 'Included', 1, NULL),
+('S-A-0015', 'B-0012', 'service', 'Getting Urine', NULL, NULL, 1, 80, 80, 'Included', 1, NULL),
+('S-A-0016', 'B-0013', 'service', 'Check-up', NULL, NULL, 1, 300, 300, 'Included', 1, NULL),
+('S-A-0017', 'B-0015', 'service', 'X-ray', NULL, NULL, 1, 500, 500, 'Included', 1, NULL),
+('S-A-0018', 'B-0014', 'service', 'Getting Urine', NULL, NULL, 1, 80, 80, 'Included', 1, NULL),
+('S-A-0019', 'B-0016', 'service', 'Check-up', NULL, NULL, 1, 300, 300, 'Included', 1, NULL);
+
+-- --------------------------------------------------------
+
+--
+-- Table structure for table `bookings`
+--
+
+CREATE TABLE `bookings` (
+  `id` varchar(10) NOT NULL,
+  `patient_account_id` int(11) NOT NULL,
+  `patient_id` varchar(10) DEFAULT NULL,
+  `visit_date` date NOT NULL,
+  `slot_start` time NOT NULL,
+  `reason` varchar(100) NOT NULL,
+  `status` enum('Booked','Checked In','No Show','Cancelled') NOT NULL DEFAULT 'Booked',
+  `queue_entry_id` varchar(10) DEFAULT NULL,
+  `created_at` datetime NOT NULL DEFAULT current_timestamp()
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- --------------------------------------------------------
+
+--
+-- Table structure for table `clinic_settings`
+--
+
+CREATE TABLE `clinic_settings` (
+  `setting_name` varchar(50) NOT NULL,
+  `setting_value` varchar(100) NOT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+--
+-- Dumping data for table `clinic_settings`
+--
+
+INSERT INTO `clinic_settings` (`setting_name`, `setting_value`) VALUES
+('no_show_grace_minutes', '10'),
+('slot_minutes', '30');
 
 -- --------------------------------------------------------
 
@@ -441,7 +750,7 @@ CREATE TABLE `consultations` (
   `respiratory_rate` int(11) DEFAULT NULL,
   `weight` decimal(5,1) DEFAULT NULL,
   `height` decimal(5,1) DEFAULT NULL,
-  `diagnosis` varchar(255) NOT NULL,
+  `diagnosis` text NOT NULL,
   `treatment` text DEFAULT NULL,
   `notes` text DEFAULT NULL,
   `follow_up_date` date DEFAULT NULL
@@ -470,7 +779,15 @@ INSERT INTO `consultations` (`id`, `patient_id`, `doctor_username`, `consult_dat
 ('C-0016', 'P-853817', 'doctor', '2026-10-30', 'Completed', '50', '50', '180/80', 45, 454.0, 45, 45.0, 45.0, '50', '50', '05', NULL),
 ('C-0017', 'P-0001', 'doctor', '2026-10-30', 'Completed', 'haya', 'haya', '180/50', 45, 45.0, 45, 45.0, 45.0, 'haya', 'haya', 'haya', NULL),
 ('C-0018', 'P-0001', 'doctor', '2026-10-30', 'Completed', 'haya', 'haya', '180/50', 45, 45.0, 45, 45.0, 45.0, 'haya', 'haya', 'haya', NULL),
-('C-0019', 'P-0001', 'aikiro', '2026-10-30', 'Completed', 'sakit sa panga', 'sakit sa panga', '180/50', 45, 45.0, 45, 45.0, 45.0, 'sakit sa panga', 'sakit sa panga', 'sakit sa panga', NULL);
+('C-0019', 'P-0001', 'aikiro', '2026-10-30', 'Completed', 'sakit sa panga', 'sakit sa panga', '180/50', 45, 45.0, 45, 45.0, 45.0, 'sakit sa panga', 'sakit sa panga', 'sakit sa panga', NULL),
+('C-0020', 'P-0002', 'doctor', '2026-11-03', 'Completed', 'sakit sa likod', 'sakit sa likod', '180/80', 50, 45.0, 45, 45.0, 45.0, 'sakit sa likod', 'sakit sa likod', 'sakit sa likod', NULL),
+('C-0021', 'P-0002', 'doctor', '2026-11-03', 'Completed', 'sakit sa binti', 'sakit sa binti', '180/80', 50, 45.0, 45, 45.0, 45.0, 'sakit sa binti', 'sakit sa binti', 'sakit sa binti', NULL);
+INSERT INTO `consultations` (`id`, `patient_id`, `doctor_username`, `consult_date`, `status`, `chief_complaint`, `symptoms`, `blood_pressure`, `heart_rate`, `temperature`, `respiratory_rate`, `weight`, `height`, `diagnosis`, `treatment`, `notes`, `follow_up_date`) VALUES
+('C-0022', 'P-0004', 'aikiro', '2026-11-07', 'Completed', 'masakit pantog', 'lower back pain', '120/80', 45, 45.0, 45, 45.0, 45.0, 'inom tubig', 'inom tubig', 'drink a lot of water and medicationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew Consultationdrink a lot of water and medicationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew Consultationdrink a lot of water and medicationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew Consultationdrink a lot of water and medicationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew Consultationdrink a lot of water and medicationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew Consultationdrink a lot of water and medicationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew Consultationdrink a lot of water and medicationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew Consultationdrink a lot of water and medicationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew Consultationdrink a lot of water and medicationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew Consultationdrink a lot of water and medicationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew Consultationdrink a lot of water and medicationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew Consultationdrink a lot of water and medicationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew Consultationdrink a lot of water and medicationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew Consultationdrink a lot of water and medicationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew Consultationdrink a lot of water and medicationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew Consultationdrink a lot of water and medicationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew Consultationdrink a lot of water and medicationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew Consultationdrink a lot of water and medicationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew Consultationdrink a lot of water and medicationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew Consultationdrink a lot of water and medicationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew Consultationdrink a lot of water and medicationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew Consultationdrink a lot of water and medicationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew Consultationdrink a lot of water and medicationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew Consultationdrink a lot of water and medicationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew Consultationdrink a lot of water and medicationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew Consultationdrink a lot of water and medicationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew Consultationdrink a lot of water and medicationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew Consultationdrink a lot of water and medicationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew Consultationdrink a lot of water and medicationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew Consultationdrink a lot of water and medicationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew Consultationdrink a lot of water and medicationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew Consultationdrink a lot of water and medicationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew Consultationdrink a lot of water and medicationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew Consultationdrink a lot of water and medicationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew Consultationdrink a lot of water and medicationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew Consultationdrink a lot of water and medicationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew Consultationdrink a lot of water and medicationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew Consultationdrink a lot of water and medicationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew Consultationdrink a lot of water and medicationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew Consultationdrink a lot of water and medicationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew Consultationdrink a lot of water and medicationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew Consultationdrink a lot of water and medicationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew Consultationdrink a lot of water and medicationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew Consultationdrink a lot of water and medicationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew Consultationdrink a lot of water and medicationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew Consultationdrink a lot of water and medicationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew Consultationdrink a lot of water and medicationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew Consultationdrink a lot of water and medicationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew Consultationdrink a lot of water and medicationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew Consultationdrink a lot of water and medicationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew Consultationdrink a lot of water and medicationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew Consultationdrink a lot of water and medicationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew Consultationdrink a lot of water and medicationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew Consultationdrink a lot of water and medicationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew Consultationdrink a lot of water and medicationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew Consultationdrink a lot of water and medicationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew Consultationdrink a lot of water and medicationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew Consultationdrink a lot of water and medicationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew Consultationdrink a lot of water and medicationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew Consultationdrink a lot of water and medicationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew Consultationdrink a lot of water and medicationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew Consultationdrink a lot of water and medicationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew Consultationdrink a lot of water and medicationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew Consultationdrink a lot of water and medicationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew Consultationdrink a lot of water and medicationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew Consultationdrink a lot of water and medicationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew Consultationdrink a lot of water and medicationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew Consultationdrink a lot of water and medicationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew Consultationdrink a lot of water and medicationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew Consultationdrink a lot of water and medicationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew Consultationdrink a lot of water and medicationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew Consultationdrink a lot of water and medicationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew Consultationdrink a lot of water and medicationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew Consultationdrink a lot of water and medicationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew Consultationdrink a lot of water and medicationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew Consultationdrink a lot of water and medicationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew Consultationdrink a lot of water and medicationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew Consultationdrink a lot of water and medicationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew Consultationdrink a lot of water and medicationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew Consultationdrink a lot of water and medicationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew Consultationdrink a lot of water and medicationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew Consultationdrink a lot of water and medicationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew Consultationdrink a lot of water and medicationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew Consultationdrink a lot of water and medicationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew Consultationdrink a lot of water and medicationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew Consultationdrink a lot of water and medicationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew Consultationdrink a lot of water and medicationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew Consultationdrink a lot of water and medicationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew Consultationdrink a lot of water and medicationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew Consultationdrink a lot of water and medicationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew Consultationdrink a lot of water and medicationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew Consultationdrink a lot of water and medicationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew Consultationdrink a lot of water and medicationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew Consultationdrink a lot of water and medicationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew Consultationdrink a lot of water and medicationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew Consultationdrink a lot of water and medicationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew Consultationdrink a lot of water and medicationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew Consultationdrink a lot of water and medicationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew Consultationdrink a lot of water and medicationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew Consultationdrink a lot of water and medicationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew Consultationdrink a lot of water and medicationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew Consultationdrink a lot of water and medicationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew Consultationdrink a lot of water and medicationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew Consultationdrink a lot of water and medicationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew Consultationdrink a lot of water and medicationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew Consultationdrink a lot of water and medicationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew Consultationdrink a lot of water and medicationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew Consultationdrink a lot of water and medicationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew Consultationdrink a lot of water and medicationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew Consultationdrink a lot of water and medicationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew Consultationdrink a lot of water and medicationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew Consultationdrink a lot of water and medicationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew Consultationdrink a lot of water and medicationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew Consultationdrink a lot of water and medicationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew Consultationdrink a lot of water and medicationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew Consultationdrink a lot of water and medicationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew Consultationdrink a lot of water and medicationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew Consultationdrink a lot of water and medicationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew Consultationdrink a lot of water and medicationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew Consultationdrink a lot of water and medicationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew Consultationdrink a lot of water and medicationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew Consultationdrink a lot of water and medicationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew Consultationdrink a lot of water and medicationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew Consultationdrink a lot of water and medicationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew Consultationdrink a lot of water and medicationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew Consultationdrink a lot of water and medicationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew Consultationdrink a lot of water and medicationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew Consultationdrink a lot of water and medicationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew Consultationdrink a lot of water and medicationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew Consultationdrink a lot of water and medicationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew Consultationdrink a lot of water and medicationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew Consultationdrink a lot of water and medicationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew Consultationdrink a lot of water and medicationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew Consultationdrink a lot of water and medicationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew Consultationdrink a lot of water and medicationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew Consultationdrink a lot of water and medicationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew Consultationdrink a lot of water and medicationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew Consultationdrink a lot of water and medicationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew Consultationdrink a lot of water and medicationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew Consultationdrink a lot of water and medicationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew Consultationdrink a lot of water and medicationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew Consultationdrink a lot of water and medicationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew Consultationdrink a lot of water and medicationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew Consultationdrink a lot of water and medicationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew Consultationdrink a lot of water and medicationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew Consultationdrink a lot of water and medicationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew Consultationdrink a lot of water and medicationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew Consultationdrink a lot of water and medicationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew Consultationdrink a lot of water and medicationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew Consultationdrink a lot of water and medicationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew Consultationdrink a lot of water and medicationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew Consultationdrink a lot of water and medicationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew Consultationdrink a lot of water and medicationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew Consultationdrink a lot of water and medicationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew Consultationdrink a lot of water and medicationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew Consultationdrink a lot of water and medicationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew Consultationdrink a lot of water and medicationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew Consultationdrink a lot of water and medicationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew Consultationdrink a lot of water and medicationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew Consultationdrink a lot of water and medicationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew Consultationdrink a lot of water and medicationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew Consultationdrink a lot of water and medicationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew Consultationdrink a lot of water and medicationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew Consultationdrink a lot of water and medicationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew Consultationdrink a lot of water and medicationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew Consultationdrink a lot of water and medicationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew Consultationdrink a lot of water and medicationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew Consultationdrink a lot of water and medicationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew Consultationdrink a lot of water and medicationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew Consultationdrink a lot of water and medicationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew Consultationdrink a lot of water and medicationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew Consultationdrink a lot of water and medicationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew Consultationdrink a lot of water and medicationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew Consultationdrink a lot of water and medicationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew Consultationdrink a lot of water and medicationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew Consultationdrink a lot of water and medicationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew Consultationdrink a lot of water and medicationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew Consultationdrink a lot of water and medicationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew Consultationdrink a lot of water and medicationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew Consultationdrink a lot of water and medicationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew Consultationdrink a lot of water and medicationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew Consultationdrink a lot of water and medicationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew Consultationdrink a lot of water and medicationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew Consultationdrink a lot of water and medicationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew Consultationdrink a lot of water and medicationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew Consultationdrink a lot of water and medicationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew Consultationdrink a lot of water and medicationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew Consultationdrink a lot of water and medicationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew Consultationdrink a lot of water and medicationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew Consultationdrink a lot of water and medicationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew Consultationdrink a lot of water and medicationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew Consultationdrink a lot of water and medicationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew Consultationdrink a lot of water and medicationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew Consultationdrink a lot of water and medicationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew Consultationdrink a lot of water and medicationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew Consultationdrink a lot of water and medicationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew Consultationdrink a lot of water and medicationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew Consultationdrink a lot of water and medicationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew Consultationdrink a lot of water and medicationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew Consultationdrink a lot of water and medicationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew Consultationdrink a lot of water and medicationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew Consultationdrink a lot of water and medicationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew Consultationdrink a lot of water and medicationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew Consultationdrink a lot of water and medicationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew Consultationdrink a lot of water and medicationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew Consultationdrink a lot of water and medicationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew Consultationdrink a lot of water and medicationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew Consultationdrink a lot of water and medicationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew Consultationdrink a lot of water and medicationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew Consultationdrink a lot of water and medicationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew Consultationdrink a lot of water and medicationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew Consultationdrink a lot of water and medicationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew Consultationdrink a lot of water and medicationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew Consultationdrink a lot of water and medicationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew Consultationdrink a lot of water and medicationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew Consultationdrink a lot of water and medicationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew Consultationdrink a lot of water and medicationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew Consultationdrink a lot of water and medicationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew Consultationdrink a lot of water and medicationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew Consultationdrink a lot of water and medicationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew Consultationdrink a lot of water and medicationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew Consultationdrink a lot of water and medicationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew Consultationdrink a lot of water and medicationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew Consultationdrink a lot of water and medicationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew Consultationdrink a lot of water and medicationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew Consultationdrink a lot of water and medicationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew Consultationdrink a lot of water and medicationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew Consultationdrink a lot of water and medicationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew Consultationdrink a lot of water and medicationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew Consultationdrink a lot of water and medicationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew Consultationdrink a lot of water and medicationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew Consultationdrink a lot of water and medicationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew Consultationdrink a lot of water and medicationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew Consultationdrink a lot of water and medicationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew Consultationdrink a lot of water and medicationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew Consultationdrink a lot of water and medicationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew Consultationdrink a lot of water and medicationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew Consultationdrink a lot of water and medicationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew Consultationdrink a lot of water and medicationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew Consultationdrink a lot of water and medicationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew Consultationdrink a lot of water and medicationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew Consultationdrink a lot of water and medicationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew Consultationdrink a lot of water and medicationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew Consultationdrink a lot of water and medicationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew Consultationdrink a lot of water and medicationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew Consultationdrink a lot of water and medicationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew Consultationdrink a lot of water and medicationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew Consultationdrink a lot of water and medicationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew Consultationdrink a lot of water and medicationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew Consultationdrink a lot of water and medicationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew Consultationdrink a lot of water and medicationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew Consultationdrink a lot of water and medicationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew Consultationdrink a lot of water and medicationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew Consultationdrink a lot of water and medicationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew Consultationdrink a lot of water and medicationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew Consultationdrink a lot of water and medicationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew Consultationdrink a lot of water and medicationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew Consultationdrink a lot of water and medicationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew Consultationdrink a lot of water and medicationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew Consultationdrink a lot of water and medicationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew Consultationdrink a lot of water and medicationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew Consultationdrink a lot of water and medicationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew Consultationdrink a lot of water and medicationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew Consultationdrink a lot of water and medicationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew Consultationdrink a lot of water and medicationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew Consultationdrink a lot of water and medicationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew Consultationdrink a lot of water and medicationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew Consultationdrink a lot of water and medicationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew Consultationdrink a lot of water and medicationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew Consultationdrink a lot of water and medicationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew ConsultationNew C', NULL);
+INSERT INTO `consultations` (`id`, `patient_id`, `doctor_username`, `consult_date`, `status`, `chief_complaint`, `symptoms`, `blood_pressure`, `heart_rate`, `temperature`, `respiratory_rate`, `weight`, `height`, `diagnosis`, `treatment`, `notes`, `follow_up_date`) VALUES
+('C-0023', 'P-0002', 'doctor', '2026-11-07', 'Completed', 'sakit sa panga', 'sakit sa panga', '120/80', 45, 45.0, 45, 45.0, 45.0, 'sakit sa panga', 'sakit sa panga', 'sakit sa panga', NULL),
+('C-0024', 'P-0002', 'doctor', '2026-11-07', 'Completed', 'jhaya', 'jhaya', '120/80', 45, 45.0, 45, 45.0, 45.0, 'jhaya', 'jhaya', 'jhaya', NULL),
+('C-0025', 'P-117829', 'doctor', '2026-11-13', 'Completed', 'sakit sa paa', 'gout', '120/50', 50, 45.0, 45, 45.0, 150.0, 'uric acid', 'meds and cold press', 'drink  awater daily', NULL);
 
 -- --------------------------------------------------------
 
@@ -482,6 +799,30 @@ CREATE TABLE `doctor_availability` (
   `doctor_username` varchar(20) NOT NULL,
   `is_ready` tinyint(1) NOT NULL DEFAULT 0,
   `ready_at` datetime DEFAULT NULL,
+  `updated_at` datetime DEFAULT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+--
+-- Dumping data for table `doctor_availability`
+--
+
+INSERT INTO `doctor_availability` (`doctor_username`, `is_ready`, `ready_at`, `updated_at`) VALUES
+('doctor', 0, '2026-11-07 17:56:18', '2026-11-07 17:56:25');
+
+-- --------------------------------------------------------
+
+--
+-- Table structure for table `doctor_profiles`
+--
+
+CREATE TABLE `doctor_profiles` (
+  `doctor_username` varchar(20) NOT NULL,
+  `license_no` varchar(30) DEFAULT NULL,
+  `ptr_no` varchar(30) DEFAULT NULL,
+  `s2_no` varchar(30) DEFAULT NULL,
+  `tin` varchar(30) DEFAULT NULL,
+  `dea_no` varchar(30) DEFAULT NULL,
+  `npi_no` varchar(30) DEFAULT NULL,
   `updated_at` datetime DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
@@ -517,8 +858,12 @@ CREATE TABLE `medications` (
 --
 
 INSERT INTO `medications` (`id`, `generic_name`, `brand_name`, `strength`, `form`, `category`, `route`, `stock`, `unit`, `reorder_level`, `unit_price`, `batch_number`, `expiry_date`, `supplier`, `indications`, `warnings`, `storage_instructions`, `is_archived`) VALUES
-('M-0001', 'pebolstat', 'pebolstat', '300', 'Tablet', 'Analgesic / Antipyretic', 'Oral', 200, 'tablets', 10, 50, '5', '2028-11-30', 'mercuruy', NULL, NULL, NULL, 0),
-('M-0002', 'paracetamol', 'paracetamol', '50', 'Tablet', 'Analgesic / Antipyretic', 'Oral', 99, 'tablets', 10, 30, '10', '2028-07-27', 'mercury', NULL, NULL, NULL, 0);
+('M-0001', 'pebolstat', 'pebolstat', '300', 'Tablet', 'Analgesic / Antipyretic', 'Oral', 200, 'tablets', 10, 50, '5', '2026-12-25', 'mercuruy', NULL, NULL, NULL, 1),
+('M-0002', 'paracetamol', 'paracetamol', '500', 'Tablet', 'Analgesic / Antipyretic', 'Oral', 99, 'tablets', 10, 30, '10', '2028-07-27', 'mercury', NULL, NULL, NULL, 0),
+('M-0003', 'pebolstata', 'pebolstata', '500', 'Tablet', 'Analgesic / Antipyretic', 'Oral', 10, 'tablets', 10, 0, '5', '2026-11-05', NULL, NULL, NULL, NULL, 0),
+('M-0004', 'paracetamol', 'paracetamol', '500', 'Tablet', 'Analgesic / Antipyretic', 'Oral', 50, 'tablets', 5, 0, NULL, '2026-12-08', 'mercury', NULL, NULL, NULL, 0),
+('M-0005', 'pebolstat', 'pebolstat', '50', 'Tablet', 'Analgesic / Antipyretic', 'Oral', 50, 'tablets', 10, 0, '50', '2026-11-07', '50', NULL, NULL, NULL, 1),
+('M-0006', 'rosobastatin', 'roso', '50', 'Tablet', 'Antibiotic', 'Oral', 50, 'tablets', 10, 50, '6', '2026-11-28', NULL, NULL, NULL, NULL, 0);
 
 -- --------------------------------------------------------
 
@@ -559,15 +904,94 @@ CREATE TABLE `patients` (
 --
 
 INSERT INTO `patients` (`id`, `first_name`, `middle_name`, `last_name`, `birth_date`, `gender`, `civil_status`, `contact_number`, `lot_no`, `barangay`, `city`, `address`, `emergency_name`, `emergency_relationship`, `emergency_contact_number`, `blood_type`, `allergies`, `medical_conditions`, `current_medications`, `date_registered`, `last_visit`, `is_archived`, `is_pwd`, `pwd_id`, `senior_id`) VALUES
-('P-0001', 'Juan', 'Santos', 'Reyes', '1998-05-15', 'Male', NULL, '09171234567', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 'None', 'None', '2026-10-23', '2026-10-30', 0, 0, NULL, NULL),
-('P-0002', 'Maria', 'Lopez', 'Garcia', '1986-03-10', 'Female', NULL, '09181234567', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 'None', 'None', '2026-10-23', '2026-10-30', 0, 0, NULL, NULL),
+('P-0001', 'Juan', 'Santos', 'Reyes', '1998-05-15', 'Male', 'Single', '09171234567', NULL, NULL, NULL, NULL, NULL, NULL, NULL, 'B+', NULL, 'None', 'None', '2026-10-23', '2026-10-30', 0, 0, NULL, NULL),
+('P-0002', 'Maria', 'Lopez', 'Garcia', '1986-03-10', 'Female', NULL, '09181234567', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 'None', 'None', '2026-10-23', '2026-11-07', 0, 0, NULL, NULL),
 ('P-0003', 'Pedro', 'Cruz', 'Santiago', '1972-08-20', 'Male', NULL, '09191234567', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 'None', 'None', '2026-10-23', '2026-10-29', 0, 0, NULL, NULL),
-('P-0004', 'Ana Mae', NULL, 'Villanueva', '2010-01-12', 'Female', NULL, '09201234567', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 'None', 'None', '2026-10-23', '2026-10-30', 0, 0, NULL, NULL),
+('P-0004', 'Ana Mae', NULL, 'Villanueva', '2010-01-12', 'Female', NULL, '09201234567', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 'None', 'None', '2026-10-23', '2026-11-07', 0, 0, NULL, NULL),
 ('P-0005', 'Carlos', NULL, 'Mendoza', '1960-04-05', 'Male', NULL, '09211234567', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 'None', 'None', '2026-10-23', '2026-10-30', 0, 0, NULL, 'SC-0001'),
+('P-117829', 'Teresita', 'Flores', 'Mangubat', '1954-03-03', 'Female', 'Widowed', '09170000026', '26', 'Dasmariñas', 'Makati City', 'Lot 26, Brgy. Dasmariñas, Makati City', 'Ben Mangubat', 'Child', '09180000026', 'B+', 'None', 'Cataract', 'None', '2026-10-27', '2026-11-13', 0, 0, NULL, 'OSCA-000126'),
+('P-174611', 'Edgardo', 'Ramos', 'Lim', '1949-01-09', 'Male', 'Married', '09170000008', '17', 'Magallanes', 'Makati City', 'Lot 17, Brgy. Magallanes, Makati City', 'Grace Lim', 'Spouse', '09180000008', 'A+', 'None', 'Asthma', 'Salbutamol inhaler', '2026-10-09', NULL, 0, 0, NULL, 'OSCA-000108'),
+('P-189747', 'Jerome', 'Alvarez', 'Pineda', '1981-03-26', 'Male', 'Married', '09170000014', '19', 'Guadalupe Nuevo', 'Makati City', 'Lot 19, Brgy. Guadalupe Nuevo, Makati City', 'Lea Pineda', 'Spouse', '09180000014', 'B+', 'Shellfish', 'None', 'None', '2026-10-15', NULL, 0, 0, NULL, NULL),
+('P-229880', 'Eric', 'John', 'Salazar', '1983-08-31', 'Male', 'Married', '09170000025', '12', 'Magallanes', 'Makati City', 'Lot 12, Brgy. Magallanes, Makati City', 'Myra Salazar', 'Spouse', '09180000025', 'A+', 'None', 'None', 'None', '2026-10-26', NULL, 0, 0, NULL, NULL),
+('P-231762', 'Jenny', 'Lyn', 'Mercado', '1966-04-18', 'Female', 'Widowed', '09170000005', '3', 'Guadalupe Nuevo', 'Makati City', 'Lot 3, Brgy. Guadalupe Nuevo, Makati City', 'Paolo Mercado', 'Child', '09180000005', 'A-', 'None', 'Asthma', 'Salbutamol inhaler', '2026-10-06', NULL, 0, 0, NULL, 'OSCA-000105'),
+('P-234138', 'Ramon', 'Bautista', 'Cruz', '1958-12-01', 'Male', 'Married', '09170000006', '14', 'Pio Del Pilar', 'Makati City', 'Lot 14, Brgy. Pio Del Pilar, Makati City', 'Lorna Cruz', 'Spouse', '09180000006', 'O-', 'Sulfa drugs', 'Type 2 diabetes', 'Metformin 500 mg', '2026-10-07', NULL, 0, 0, NULL, 'OSCA-000106'),
+('P-269127', 'Mylene', 'Dizon', 'Ong', '1979-11-08', 'Female', 'Married', '09170000015', '4', 'Palanan', 'Makati City', 'Lot 4, Brgy. Palanan, Makati City', 'Henry Ong', 'Spouse', '09180000015', 'A-', 'None', 'None', 'None', '2026-10-16', NULL, 0, 0, NULL, NULL),
+('P-274890', 'Rico', 'Dizon', 'Santiago', '1972-09-30', 'Male', 'Married', '09170000004', '21', 'Olympia', 'Makati City', 'Lot 21, Brgy. Olympia, Makati City', 'Elena Santiago', 'Spouse', '09180000004', 'AB+', 'None', 'Hypertension', 'Amlodipine 5 mg', '2026-10-05', NULL, 0, 0, NULL, NULL),
+('P-310364', 'Benjamin', 'Cruz', 'Aquino', '1975-05-03', 'Male', 'Married', '09170000010', '11', 'Bel-Air', 'Makati City', 'Lot 11, Brgy. Bel-Air, Makati City', 'Ana Aquino', 'Spouse', '09180000010', 'O+', 'None', 'None', 'None', '2026-10-11', NULL, 0, 0, NULL, NULL),
+('P-310523', 'Melanie', 'Joy', 'Aguilar', '1992-01-28', 'Female', 'Single', '09170000024', '20', 'Palanan', 'Makati City', 'Lot 20, Brgy. Palanan, Makati City', 'Tony Aguilar', 'Sibling', '09180000024', 'O-', 'None', 'Mobility impairment', 'None', '2026-10-25', NULL, 0, 1, 'PWD-0301-2023', NULL),
+('P-343766', 'Oscar', 'Villar', 'Dimaculangan', '1957-10-07', 'Male', 'Widowed', '09170000018', '22', 'Pio Del Pilar', 'Makati City', 'Lot 22, Brgy. Pio Del Pilar, Makati City', 'Jun Dimaculangan', 'Child', '09180000018', 'B+', 'None', 'Gout', 'Allopurinol 100 mg', '2026-10-19', NULL, 0, 0, NULL, 'OSCA-000118'),
+('P-344051', 'Joanna', 'Marie', 'Villarin', '1996-05-27', 'Female', 'Single', '09170000028', '27', 'Bel-Air', 'Makati City', 'Lot 27, Brgy. Bel-Air, Makati City', 'Ed Villarin', 'Sibling', '09180000028', 'A-', 'None', 'None', 'None', '2026-10-29', NULL, 0, 0, NULL, NULL),
+('P-375405', 'Leonora', 'Garcia', 'Tan', '1952-06-25', 'Female', 'Widowed', '09170000007', '9', 'Palanan', 'Makati City', 'Lot 9, Brgy. Palanan, Makati City', 'Victor Tan', 'Child', '09180000007', 'B-', 'None', 'Hypertension', 'Losartan 50 mg', '2026-10-08', NULL, 0, 0, NULL, 'OSCA-000107'),
+('P-407579', 'Dennis', 'Roy', 'Enriquez', '1962-06-11', 'Male', 'Married', '09170000023', '24', 'Guadalupe Nuevo', 'Makati City', 'Lot 24, Brgy. Guadalupe Nuevo, Makati City', 'Elisa Enriquez', 'Spouse', '09180000023', 'AB-', 'None', 'Hypertension', 'Amlodipine 5 mg', '2026-10-24', NULL, 0, 0, NULL, 'OSCA-000123'),
+('P-421731', 'Harold', 'James', 'Cuevas', '1970-09-16', 'Male', 'Married', '09170000029', '28', 'Olympia', 'Makati City', 'Lot 28, Brgy. Olympia, Makati City', 'Ana Cuevas', 'Spouse', '09180000029', 'O+', 'Penicillin', 'Hypertension', 'Losartan 50 mg', '2026-10-30', NULL, 0, 0, NULL, NULL),
+('P-444018', 'Hannah', 'Grace', 'Tolentino', '1989-09-09', 'Female', 'Married', '09170000020', '18', 'Bel-Air', 'Makati City', 'Lot 18, Brgy. Bel-Air, Makati City', 'Paul Tolentino', 'Spouse', '09180000020', 'O+', 'None', 'None', 'None', '2026-10-21', NULL, 0, 0, NULL, NULL),
+('P-493202', 'Angelica', 'Rose', 'Soriano', '1994-12-30', 'Female', 'Single', '09170000013', '7', 'San Antonio', 'Makati City', 'Lot 7, Brgy. San Antonio, Makati City', 'Dante Soriano', 'Sibling', '09180000013', 'O+', 'None', 'Mobility impairment', 'None', '2026-10-14', NULL, 0, 1, 'PWD-0045-2025', NULL),
+('P-495063', 'Lucas', 'Gabriel', 'Cabrera', '2015-05-20', 'Male', 'Single', '09170000019', '16', 'Poblacion', 'Makati City', 'Lot 16, Brgy. Poblacion, Makati City', 'Shiela Cabrera', 'Parent', '09180000019', 'A+', 'None', 'None', 'None', '2026-10-20', NULL, 0, 0, NULL, NULL),
+('P-538938', 'aikiro', 'commandante', 'gallares', '2026-11-09', 'Male', 'Single', '09561659865', '2161', 'lapaz', 'makti', 'Lot 2161, Brgy. lapaz, makti', 'james', 'Friend', '09565665666', 'B+', 'wallnut', 'tablet', 'heart', '2026-11-13', NULL, 0, 1, '199849654626', NULL),
+('P-546839', 'Cecilia', 'Torres', 'Mendez', '1963-08-14', 'Female', 'Single', '09170000009', '6', 'Dasmariñas', 'Makati City', 'Lot 6, Brgy. Dasmariñas, Makati City', 'Ruben Mendez', 'Sibling', '09180000009', 'AB-', 'None', 'None', 'None', '2026-10-10', NULL, 0, 0, NULL, 'OSCA-000109'),
+('P-554309', 'Mark', 'Joseph', 'Dela Rosa', '1985-07-22', 'Male', 'Married', '09170000002', '5', 'Bel-Air', 'Makati City', 'Lot 5, Brgy. Bel-Air, Makati City', 'Joy Dela Rosa', 'Spouse', '09180000002', 'B+', 'None', 'None', 'None', '2026-10-03', NULL, 0, 0, NULL, NULL),
+('P-574661', 'Ana', 'Marie', 'Reyes', '1990-03-14', 'Female', 'Single', '09170000001', '12', 'Poblacion', 'Makati City', 'Lot 12, Brgy. Poblacion, Makati City', 'Carlos Reyes', 'Spouse', '09180000001', 'A+', 'Peanuts', 'None', 'None', '2026-10-02', NULL, 0, 0, NULL, NULL),
 ('P-592176', 'mayku', 'sendanw', 'senden', '2026-09-28', 'Male', 'Single', '09595959595', '26a5wd6aw5d', 'lapas', 'awdawdawdwad', 'Lot 26a5wd6aw5d, Brgy. lapas, awdawdawdwad', 'adwawdawdawd', 'Guardian', '09595955995', 'B+', 'None', 'None', 'None', '2026-10-30', NULL, 1, 0, NULL, NULL),
+('P-634902', 'Vincent', 'Lorenzo', 'Padilla', '1987-04-16', 'Male', 'Single', '09170000021', '23', 'Olympia', 'Makati City', 'Lot 23, Brgy. Olympia, Makati City', 'Rosa Padilla', 'Parent', '09180000021', 'A+', 'None', 'None', 'None', '2026-10-22', NULL, 0, 0, NULL, NULL),
+('P-674589', 'Grace', 'Ann', 'Lopez', '1968-02-19', 'Female', 'Married', '09170000017', '13', 'Dasmariñas', 'Makati City', 'Lot 13, Brgy. Dasmariñas, Makati City', 'Mario Lopez', 'Spouse', '09180000017', 'AB+', 'None', 'None', 'None', '2026-10-18', NULL, 0, 0, NULL, NULL),
+('P-676394', 'Patrick', 'Ian', 'Reyes', '1996-07-04', 'Male', 'Single', '09170000016', '10', 'Magallanes', 'Makati City', 'Lot 10, Brgy. Magallanes, Makati City', 'Lourdes Reyes', 'Parent', '09180000016', 'O-', 'None', 'Hearing impairment', 'None', '2026-10-17', NULL, 0, 1, 'PWD-0112-2024', NULL),
+('P-699507', 'Mark', 'Anthony', 'Sison', '2000-11-15', 'Male', 'Single', '09170000027', '9', 'Pio Del Pilar', 'Makati City', 'Lot 9, Brgy. Pio Del Pilar, Makati City', 'Lorna Sison', 'Parent', '09180000027', 'O+', 'None', 'None', 'None', '2026-10-28', NULL, 0, 0, NULL, NULL),
+('P-711303', 'Carmela', 'Joy', 'Pascual', '2001-02-17', 'Female', 'Single', '09170000011', '2', 'Olympia', 'Makati City', 'Lot 2, Brgy. Olympia, Makati City', 'Jose Pascual', 'Parent', '09180000011', 'A+', 'None', 'None', 'None', '2026-10-12', NULL, 0, 0, NULL, NULL),
+('P-725422', 'Kevin', 'Paul', 'Navarro', '2003-06-12', 'Male', 'Single', '09170000012', '15', 'Poblacion', 'Makati City', 'Lot 15, Brgy. Poblacion, Makati City', 'Nora Navarro', 'Parent', '09180000012', 'B+', 'Shellfish', 'None', 'None', '2026-10-13', NULL, 0, 0, NULL, NULL),
 ('P-775800', 'mayku', 'adwawdwad', 'senden', '1956-01-12', 'Male', 'Single', '09595656565', '2a6wd2a6w2d6aw26wa2d', 'adwwadawdawdwad123123123', 'adwawdawdawd', 'Lot 2a6wd2a6w2d6aw26wa2d, Brgy. adwwadawdawdwad123123123, adwawdawdawd', 'mayku senden', 'Spouse', '09559599595', 'AB-', 'None', 'None', 'None', '2026-10-30', '2026-10-30', 0, 0, NULL, '31212313212321313213213'),
+('P-842457', 'Ruth', 'Anne', 'Bonifacio', '1977-12-24', 'Female', 'Married', '09170000022', '1', 'San Antonio', 'Makati City', 'Lot 1, Brgy. San Antonio, Makati City', 'Carlo Bonifacio', 'Spouse', '09180000022', 'B-', 'Penicillin', 'Hypertension', 'Losartan 50 mg', '2026-10-23', NULL, 0, 0, NULL, NULL),
 ('P-853817', 'mayku', 'sendanw', 'senden', '2026-10-28', 'Male', 'Single', '09556565656', '2161548', 'pobla', 'makati', 'Lot 2161548, Brgy. pobla, makati', 'mareanne', 'Parent', '09955995595', 'O-', 'None', 'None', 'None', '2026-10-29', '2026-10-30', 0, 1, '8559595123123123132132132', NULL),
-('P-935650', 'mayku', 'sendanw', 'senden', '2026-09-28', 'Male', 'Married', '09599595959', '955595995599', 'lapas', 'makatiiii', 'Lot 955595995599, Brgy. lapas, makatiiii', 'mayku senden', 'Spouse', '09559595959', 'O-', 'None', 'None', 'None', '2026-10-30', NULL, 0, 0, NULL, NULL);
+('P-935650', 'mayku', 'sendanw', 'senden', '2026-09-28', 'Male', 'Married', '09599595959', '955595995599', 'lapas', 'makatiiii', 'Lot 955595995599, Brgy. lapas, makatiiii', 'mayku senden', 'Spouse', '09559595959', 'O-', 'None', 'None', 'None', '2026-10-30', NULL, 0, 0, NULL, NULL),
+('P-947564', 'Liza', 'Mae', 'Villanueva', '1998-11-05', 'Female', 'Single', '09170000003', '8', 'San Antonio', 'Makati City', 'Lot 8, Brgy. San Antonio, Makati City', 'Ramon Villanueva', 'Parent', '09180000003', 'O+', 'None', 'None', 'None', '2026-10-04', NULL, 0, 0, NULL, NULL),
+('P-976503', 'Rowena', 'Santos', 'Ilagan', '1959-07-07', 'Female', 'Married', '09170000030', '29', 'San Antonio', 'Makati City', 'Lot 29, Brgy. San Antonio, Makati City', 'Dante Ilagan', 'Spouse', '09180000030', 'AB+', 'None', 'Osteoarthritis', 'Ibuprofen 400 mg (as needed)', '2026-10-31', NULL, 0, 0, NULL, 'OSCA-000130');
+
+-- --------------------------------------------------------
+
+--
+-- Table structure for table `patient_accounts`
+--
+
+CREATE TABLE `patient_accounts` (
+  `id` int(11) NOT NULL,
+  `username` varchar(20) NOT NULL,
+  `contact_number` varchar(11) NOT NULL,
+  `full_name` varchar(150) NOT NULL,
+  `birth_date` date NOT NULL,
+  `gender` varchar(10) DEFAULT NULL,
+  `email` varchar(100) DEFAULT NULL,
+  `guardian_name` varchar(100) DEFAULT NULL,
+  `guardian_contact` varchar(11) DEFAULT NULL,
+  `guardian_relationship` varchar(30) DEFAULT NULL,
+  `password_hash` varchar(255) NOT NULL,
+  `status` enum('Pending','Approved','Rejected') NOT NULL DEFAULT 'Pending',
+  `patient_id` varchar(10) DEFAULT NULL,
+  `reject_reason` varchar(255) DEFAULT NULL,
+  `approved_by` varchar(20) DEFAULT NULL,
+  `approved_at` datetime DEFAULT NULL,
+  `created_at` datetime NOT NULL DEFAULT current_timestamp(),
+  `is_active` tinyint(1) NOT NULL DEFAULT 1
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+--
+-- Dumping data for table `patient_accounts`
+--
+
+INSERT INTO `patient_accounts` (`id`, `username`, `contact_number`, `full_name`, `birth_date`, `gender`, `email`, `guardian_name`, `guardian_contact`, `guardian_relationship`, `password_hash`, `status`, `patient_id`, `reject_reason`, `approved_by`, `approved_at`, `created_at`, `is_active`) VALUES
+(1, 'yuyi', '09565565656', 'aikiro yuyi gallares', '2026-11-01', NULL, 'aikirogallares@gmail.com', NULL, NULL, NULL, '$2y$10$kOItmezO0jElj2mXrGrqK.zLQc4hQ1X54Euf96UJ0ZTpxEyedf3fe', 'Pending', NULL, NULL, NULL, NULL, '2026-11-13 18:29:12', 1);
+
+-- --------------------------------------------------------
+
+--
+-- Table structure for table `patient_documents`
+--
+
+CREATE TABLE `patient_documents` (
+  `id` int(11) NOT NULL,
+  `patient_account_id` int(11) NOT NULL,
+  `document_type` enum('Government ID','Selfie') NOT NULL,
+  `file_path` varchar(255) NOT NULL,
+  `uploaded_at` datetime NOT NULL DEFAULT current_timestamp()
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- --------------------------------------------------------
 
@@ -589,7 +1013,9 @@ CREATE TABLE `prescriptions` (
 INSERT INTO `prescriptions` (`id`, `patient_id`, `doctor_username`, `prescribed_date`) VALUES
 ('RX-0001', 'P-853817', 'doctor', '2026-10-30'),
 ('RX-0002', 'P-853817', 'doctor', '2026-10-30'),
-('RX-0003', 'P-0004', 'doctor', '2026-10-30');
+('RX-0003', 'P-0004', 'doctor', '2026-10-30'),
+('RX-0004', 'P-0004', 'aikiro', '2026-11-06'),
+('RX-0005', 'P-117829', 'doctor', '2026-11-13');
 
 -- --------------------------------------------------------
 
@@ -615,7 +1041,10 @@ CREATE TABLE `prescription_items` (
 INSERT INTO `prescription_items` (`id`, `prescription_id`, `medicine_name`, `dosage`, `frequency`, `duration`, `quantity`, `instructions`) VALUES
 (1, 'RX-0001', 'awdawd', '12', '3', '4', 11, '1'),
 (2, 'RX-0002', 'dawdawda', '1', '2', '3', 1, 'dirnk once a day'),
-(3, 'RX-0003', 'paracetamol (paracetamol) 50 Tablet', '50', '1', '50', 1, '20');
+(3, 'RX-0003', 'paracetamol (paracetamol) 50 Tablet', '50', '1', '50', 1, '20'),
+(4, 'RX-0004', 'pebolstata (pebolstata) 500 Tablet', '500', '5', '45', 4, '45'),
+(5, 'RX-0005', 'paracetamol (paracetamol) 500 Tablet', '500', 'Once a day - morning', '15', 15, 'Take after food'),
+(6, 'RX-0005', 'bioflue', '50', 'Once a day - noon', '15', 2, 'Take after food');
 
 -- --------------------------------------------------------
 
@@ -638,26 +1067,35 @@ CREATE TABLE `queue_entries` (
   `doctor_finished_at` datetime DEFAULT NULL,
   `doctor_finished_by` varchar(20) DEFAULT NULL,
   `missing_at` datetime DEFAULT NULL,
-  `returned_at` datetime DEFAULT NULL
+  `returned_at` datetime DEFAULT NULL,
+  `booking_id` varchar(10) DEFAULT NULL,
+  `slot_start` time DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 --
 -- Dumping data for table `queue_entries`
 --
 
-INSERT INTO `queue_entries` (`id`, `patient_id`, `doctor_username`, `visit_date`, `reason`, `priority`, `status`, `queue_number`, `queued_at`, `started_at`, `completed_at`, `doctor_finished_at`, `doctor_finished_by`, `missing_at`, `returned_at`) VALUES
-('A-0001', 'P-0001', 'doctor', '2026-10-30', 'Check-up', 'Regular', 'Completed', 1, '2026-10-30 08:02:29', '2026-10-30 08:17:29', '2026-10-30 08:32:29', NULL, NULL, NULL, NULL),
-('A-0002', 'P-0003', 'doctor', '2026-10-30', 'Blood Test', 'Regular', 'Completed', 2, '2026-10-30 08:27:29', '2026-10-30 08:52:29', '2026-10-30 09:09:00', '2026-10-30 09:09:00', 'doctor', NULL, NULL),
-('A-0003', 'P-0002', 'doctor', '2026-10-30', 'Check-up', 'Regular', 'Cancelled', 3, '2026-10-30 08:47:29', NULL, NULL, NULL, NULL, NULL, NULL),
-('A-0004', 'P-0004', 'doctor', '2026-10-30', 'X-ray', 'Regular', 'Cancelled', 4, '2026-10-30 08:57:29', NULL, NULL, NULL, NULL, NULL, NULL),
-('A-0005', 'P-0002', 'doctor', '2026-10-20', 'Getting Blood', 'Regular', 'Cancelled', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL),
-('A-0006', 'P-775800', 'doctor', '2026-10-30', 'Urine Test', 'Regular', 'Completed', 5, '2026-10-30 09:06:06', '2026-10-30 09:09:04', '2026-10-30 09:09:15', '2026-10-30 09:09:15', 'doctor', NULL, NULL),
-('A-0007', 'P-0002', 'doctor', '2026-10-30', 'Check-up', 'Regular', 'Completed', 6, '2026-10-30 09:47:30', '2026-10-30 09:57:32', '2026-10-30 09:57:43', '2026-10-30 09:57:43', 'doctor', '2026-10-30 09:54:00', '2026-10-30 09:54:06'),
-('A-0008', 'P-0004', 'doctor', '2026-10-30', 'Urine Test', 'Regular', 'Completed', 7, '2026-10-30 09:47:36', '2026-10-30 09:53:47', '2026-10-30 09:54:30', '2026-10-30 09:54:30', 'doctor', NULL, NULL),
-('A-0009', 'P-853817', 'doctor', '2026-10-30', 'Getting Urine', 'Regular', 'Completed', 8, '2026-10-30 09:47:40', '2026-10-30 09:58:26', '2026-10-30 09:58:42', '2026-10-30 09:58:42', 'doctor', NULL, NULL),
-('A-0010', 'P-0001', 'doctor', '2026-10-30', 'Blood Test', 'Regular', 'Completed', 9, '2026-10-30 10:39:21', '2026-10-30 10:39:50', '2026-10-30 10:40:16', '2026-10-30 10:40:08', 'doctor', NULL, NULL),
-('A-0011', 'P-0001', 'doctor', '2026-10-30', 'Getting Urine', 'Regular', 'Completed', 10, '2026-10-30 10:39:38', '2026-10-30 10:48:17', '2026-10-30 10:48:30', '2026-10-30 10:48:30', 'doctor', NULL, NULL),
-('A-0012', 'P-0001', 'aikiro', '2026-10-30', 'Getting Blood', 'Regular', 'Completed', 11, '2026-10-30 10:48:02', '2026-10-30 11:00:48', '2026-10-30 11:01:29', '2026-10-30 11:01:29', 'aikiro', NULL, NULL);
+INSERT INTO `queue_entries` (`id`, `patient_id`, `doctor_username`, `visit_date`, `reason`, `priority`, `status`, `queue_number`, `queued_at`, `started_at`, `completed_at`, `doctor_finished_at`, `doctor_finished_by`, `missing_at`, `returned_at`, `booking_id`, `slot_start`) VALUES
+('A-0001', 'P-0001', 'doctor', '2026-10-30', 'Check-up', 'Regular', 'Completed', 1, '2026-10-30 08:02:29', '2026-10-30 08:17:29', '2026-10-30 08:32:29', NULL, NULL, NULL, NULL, NULL, NULL),
+('A-0002', 'P-0003', 'doctor', '2026-10-30', 'Blood Test', 'Regular', 'Completed', 2, '2026-10-30 08:27:29', '2026-10-30 08:52:29', '2026-10-30 09:09:00', '2026-10-30 09:09:00', 'doctor', NULL, NULL, NULL, NULL),
+('A-0003', 'P-0002', 'doctor', '2026-10-30', 'Check-up', 'Regular', 'Cancelled', 3, '2026-10-30 08:47:29', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL),
+('A-0004', 'P-0004', 'doctor', '2026-10-30', 'X-ray', 'Regular', 'Cancelled', 4, '2026-10-30 08:57:29', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL),
+('A-0005', 'P-0002', 'doctor', '2026-10-20', 'Getting Blood', 'Regular', 'Cancelled', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL),
+('A-0006', 'P-775800', 'doctor', '2026-10-30', 'Urine Test', 'Regular', 'Completed', 5, '2026-10-30 09:06:06', '2026-10-30 09:09:04', '2026-10-30 09:09:15', '2026-10-30 09:09:15', 'doctor', NULL, NULL, NULL, NULL),
+('A-0007', 'P-0002', 'doctor', '2026-10-30', 'Check-up', 'Regular', 'Completed', 6, '2026-10-30 09:47:30', '2026-10-30 09:57:32', '2026-10-30 09:57:43', '2026-10-30 09:57:43', 'doctor', '2026-10-30 09:54:00', '2026-10-30 09:54:06', NULL, NULL),
+('A-0008', 'P-0004', 'doctor', '2026-10-30', 'Urine Test', 'Regular', 'Completed', 7, '2026-10-30 09:47:36', '2026-10-30 09:53:47', '2026-10-30 09:54:30', '2026-10-30 09:54:30', 'doctor', NULL, NULL, NULL, NULL),
+('A-0009', 'P-853817', 'doctor', '2026-10-30', 'Getting Urine', 'Regular', 'Completed', 8, '2026-10-30 09:47:40', '2026-10-30 09:58:26', '2026-10-30 09:58:42', '2026-10-30 09:58:42', 'doctor', NULL, NULL, NULL, NULL),
+('A-0010', 'P-0001', 'doctor', '2026-10-30', 'Blood Test', 'Regular', 'Completed', 9, '2026-10-30 10:39:21', '2026-10-30 10:39:50', '2026-10-30 10:40:16', '2026-10-30 10:40:08', 'doctor', NULL, NULL, NULL, NULL),
+('A-0011', 'P-0001', 'doctor', '2026-10-30', 'Getting Urine', 'Regular', 'Completed', 10, '2026-10-30 10:39:38', '2026-10-30 10:48:17', '2026-10-30 10:48:30', '2026-10-30 10:48:30', 'doctor', NULL, NULL, NULL, NULL),
+('A-0012', 'P-0001', 'aikiro', '2026-10-30', 'Getting Blood', 'Regular', 'Completed', 11, '2026-10-30 10:48:02', '2026-10-30 11:00:48', '2026-10-30 11:01:29', '2026-10-30 11:01:29', 'aikiro', NULL, NULL, NULL, NULL),
+('A-0013', 'P-0002', 'doctor', '2026-11-03', 'X-ray', 'Regular', 'Completed', 1, '2026-11-03 11:18:45', '2026-11-03 11:18:57', '2026-11-03 11:19:25', '2026-11-03 11:19:25', 'doctor', NULL, NULL, NULL, NULL),
+('A-0014', 'P-0002', 'doctor', '2026-11-03', 'Getting Blood', 'Regular', 'Completed', 2, '2026-11-03 11:21:37', '2026-11-03 11:21:40', '2026-11-03 11:22:35', '2026-11-03 11:22:35', 'doctor', NULL, NULL, NULL, NULL),
+('A-0015', 'P-0002', 'doctor', '2026-11-03', 'Getting Urine', 'Regular', 'Completed', 3, '2026-11-03 11:23:53', '2026-11-03 11:24:18', '2026-11-03 11:36:50', NULL, NULL, NULL, NULL, NULL, NULL),
+('A-0016', 'P-0004', 'aikiro', '2026-11-06', 'Check-up', 'Regular', 'Completed', 1, '2026-11-06 23:20:20', '2026-11-06 23:22:13', '2026-11-06 23:23:34', '2026-11-06 23:23:34', 'aikiro', NULL, NULL, NULL, NULL),
+('A-0017', 'P-0002', 'doctor', '2026-11-07', 'X-ray', 'Regular', 'Completed', 1, '2026-11-07 15:11:37', '2026-11-07 15:40:44', '2026-11-07 16:20:22', '2026-11-07 16:20:22', 'doctor', '2026-11-07 15:12:02', '2026-11-07 15:21:17', NULL, NULL),
+('A-0018', 'P-0004', 'aikiro', '2026-11-07', 'Getting Urine', 'Regular', 'Completed', 2, '2026-11-07 15:11:48', '2026-11-07 15:16:33', '2026-11-07 15:25:28', '2026-11-07 15:25:28', 'aikiro', NULL, NULL, NULL, NULL),
+('A-0019', 'P-117829', 'doctor', '2026-11-13', 'Check-up', 'Regular', 'Completed', 1, '2026-11-13 13:21:18', '2026-11-13 13:46:50', '2026-11-13 13:48:28', '2026-11-13 13:48:28', 'doctor', '2026-11-13 13:22:01', '2026-11-13 13:24:51', NULL, NULL);
 
 -- --------------------------------------------------------
 
@@ -669,6 +1107,33 @@ CREATE TABLE `service_fees` (
   `service_name` varchar(50) NOT NULL,
   `price` int(11) NOT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- --------------------------------------------------------
+
+--
+-- Table structure for table `test_results`
+--
+
+CREATE TABLE `test_results` (
+  `id` varchar(10) NOT NULL,
+  `queue_entry_id` varchar(10) NOT NULL,
+  `patient_id` varchar(10) NOT NULL,
+  `test_name` varchar(100) NOT NULL,
+  `result_text` text NOT NULL,
+  `recorded_by` varchar(20) NOT NULL,
+  `recorded_at` datetime NOT NULL,
+  `updated_by` varchar(20) DEFAULT NULL,
+  `updated_at` datetime DEFAULT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+--
+-- Dumping data for table `test_results`
+--
+
+INSERT INTO `test_results` (`id`, `queue_entry_id`, `patient_id`, `test_name`, `result_text`, `recorded_by`, `recorded_at`, `updated_by`, `updated_at`) VALUES
+('T-0001', 'A-0015', 'P-0002', 'Getting Urine', 'she have a blood std', 'admin', '2026-11-03 11:24:08', NULL, NULL),
+('T-0002', 'A-0016', 'P-0004', 'Getting Blood', 'daming kinain na chicharon high blood', 'admin', '2026-11-06 23:21:04', NULL, NULL),
+('T-0003', 'A-0018', 'P-0004', 'Getting Urine', 'UTI', 'yuki', '2026-11-07 15:15:22', NULL, NULL);
 
 -- --------------------------------------------------------
 
@@ -727,11 +1192,32 @@ INSERT INTO `vitals` (`queue_entry_id`, `blood_pressure`, `heart_rate`, `tempera
 ('A-0009', '180/80', 45, 454.0, 45, 45.0, 45.0, 'admin', '2026-10-30 09:48:20'),
 ('A-0010', '180/50', 45, 45.0, 45, 45.0, 45.0, 'admin', '2026-10-30 10:39:46'),
 ('A-0011', '180/50', 45, 45.0, 45, 45.0, 45.0, 'admin', '2026-10-30 10:39:46'),
-('A-0012', '180/50', 45, 45.0, 45, 45.0, 45.0, 'admin', '2026-10-30 10:39:46');
+('A-0012', '180/50', 45, 45.0, 45, 45.0, 45.0, 'admin', '2026-10-30 10:39:46'),
+('A-0013', '180/80', 50, 45.0, 45, 45.0, 45.0, 'admin', '2026-11-03 11:18:56'),
+('A-0014', '180/80', 50, 45.0, 45, 45.0, 45.0, 'admin', '2026-11-03 11:18:56'),
+('A-0015', '180/80', 50, 45.0, 45, 45.0, 45.0, 'admin', '2026-11-03 11:18:56'),
+('A-0016', '120/80', 45, 45.0, 45, 45.0, 45.0, 'admin', '2026-11-06 23:21:15'),
+('A-0017', '120/80', 45, 45.0, 45, 45.0, 45.0, 'yuki', '2026-11-07 15:40:41'),
+('A-0018', '120/80', 45, 45.0, 45, 45.0, 45.0, 'yuki', '2026-11-07 15:15:42'),
+('A-0019', '120/50', 50, 45.0, 45, 45.0, 150.0, 'staff', '2026-11-13 13:46:45');
 
 --
 -- Indexes for dumped tables
 --
+
+--
+-- Indexes for table `archived_prescriptions`
+--
+ALTER TABLE `archived_prescriptions`
+  ADD PRIMARY KEY (`id`),
+  ADD KEY `patient_id` (`patient_id`);
+
+--
+-- Indexes for table `archived_prescription_items`
+--
+ALTER TABLE `archived_prescription_items`
+  ADD PRIMARY KEY (`id`),
+  ADD KEY `archived_id` (`archived_id`);
 
 --
 -- Indexes for table `audit_logs`
@@ -759,6 +1245,21 @@ ALTER TABLE `bill_items`
   ADD KEY `medication_id` (`medication_id`);
 
 --
+-- Indexes for table `bookings`
+--
+ALTER TABLE `bookings`
+  ADD PRIMARY KEY (`id`),
+  ADD KEY `idx_booking_slot` (`visit_date`,`slot_start`),
+  ADD KEY `patient_account_id` (`patient_account_id`),
+  ADD KEY `patient_id` (`patient_id`);
+
+--
+-- Indexes for table `clinic_settings`
+--
+ALTER TABLE `clinic_settings`
+  ADD PRIMARY KEY (`setting_name`);
+
+--
 -- Indexes for table `consultations`
 --
 ALTER TABLE `consultations`
@@ -773,6 +1274,12 @@ ALTER TABLE `doctor_availability`
   ADD PRIMARY KEY (`doctor_username`);
 
 --
+-- Indexes for table `doctor_profiles`
+--
+ALTER TABLE `doctor_profiles`
+  ADD PRIMARY KEY (`doctor_username`);
+
+--
 -- Indexes for table `medications`
 --
 ALTER TABLE `medications`
@@ -784,6 +1291,21 @@ ALTER TABLE `medications`
 ALTER TABLE `patients`
   ADD PRIMARY KEY (`id`),
   ADD KEY `idx_patients_name` (`last_name`,`first_name`);
+
+--
+-- Indexes for table `patient_accounts`
+--
+ALTER TABLE `patient_accounts`
+  ADD PRIMARY KEY (`id`),
+  ADD UNIQUE KEY `username` (`username`),
+  ADD KEY `patient_id` (`patient_id`);
+
+--
+-- Indexes for table `patient_documents`
+--
+ALTER TABLE `patient_documents`
+  ADD PRIMARY KEY (`id`),
+  ADD KEY `patient_account_id` (`patient_account_id`);
 
 --
 -- Indexes for table `prescriptions`
@@ -816,6 +1338,14 @@ ALTER TABLE `service_fees`
   ADD PRIMARY KEY (`service_name`);
 
 --
+-- Indexes for table `test_results`
+--
+ALTER TABLE `test_results`
+  ADD PRIMARY KEY (`id`),
+  ADD KEY `idx_test_queue` (`queue_entry_id`),
+  ADD KEY `patient_id` (`patient_id`);
+
+--
 -- Indexes for table `users`
 --
 ALTER TABLE `users`
@@ -833,20 +1363,50 @@ ALTER TABLE `vitals`
 --
 
 --
+-- AUTO_INCREMENT for table `archived_prescription_items`
+--
+ALTER TABLE `archived_prescription_items`
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
+
+--
 -- AUTO_INCREMENT for table `audit_logs`
 --
 ALTER TABLE `audit_logs`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=299;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=517;
+
+--
+-- AUTO_INCREMENT for table `patient_accounts`
+--
+ALTER TABLE `patient_accounts`
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=2;
+
+--
+-- AUTO_INCREMENT for table `patient_documents`
+--
+ALTER TABLE `patient_documents`
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
 
 --
 -- AUTO_INCREMENT for table `prescription_items`
 --
 ALTER TABLE `prescription_items`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=4;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=7;
 
 --
 -- Constraints for dumped tables
 --
+
+--
+-- Constraints for table `archived_prescriptions`
+--
+ALTER TABLE `archived_prescriptions`
+  ADD CONSTRAINT `archived_prescriptions_ibfk_1` FOREIGN KEY (`patient_id`) REFERENCES `patients` (`id`);
+
+--
+-- Constraints for table `archived_prescription_items`
+--
+ALTER TABLE `archived_prescription_items`
+  ADD CONSTRAINT `archived_prescription_items_ibfk_1` FOREIGN KEY (`archived_id`) REFERENCES `archived_prescriptions` (`id`) ON DELETE CASCADE;
 
 --
 -- Constraints for table `bills`
@@ -861,6 +1421,13 @@ ALTER TABLE `bill_items`
   ADD CONSTRAINT `bill_items_ibfk_1` FOREIGN KEY (`bill_id`) REFERENCES `bills` (`id`) ON DELETE CASCADE;
 
 --
+-- Constraints for table `bookings`
+--
+ALTER TABLE `bookings`
+  ADD CONSTRAINT `bookings_ibfk_1` FOREIGN KEY (`patient_account_id`) REFERENCES `patient_accounts` (`id`),
+  ADD CONSTRAINT `bookings_ibfk_2` FOREIGN KEY (`patient_id`) REFERENCES `patients` (`id`);
+
+--
 -- Constraints for table `consultations`
 --
 ALTER TABLE `consultations`
@@ -872,6 +1439,24 @@ ALTER TABLE `consultations`
 --
 ALTER TABLE `doctor_availability`
   ADD CONSTRAINT `doctor_availability_ibfk_1` FOREIGN KEY (`doctor_username`) REFERENCES `users` (`username`);
+
+--
+-- Constraints for table `doctor_profiles`
+--
+ALTER TABLE `doctor_profiles`
+  ADD CONSTRAINT `doctor_profiles_ibfk_1` FOREIGN KEY (`doctor_username`) REFERENCES `users` (`username`);
+
+--
+-- Constraints for table `patient_accounts`
+--
+ALTER TABLE `patient_accounts`
+  ADD CONSTRAINT `patient_accounts_ibfk_1` FOREIGN KEY (`patient_id`) REFERENCES `patients` (`id`);
+
+--
+-- Constraints for table `patient_documents`
+--
+ALTER TABLE `patient_documents`
+  ADD CONSTRAINT `patient_documents_ibfk_1` FOREIGN KEY (`patient_account_id`) REFERENCES `patient_accounts` (`id`) ON DELETE CASCADE;
 
 --
 -- Constraints for table `prescriptions`
@@ -892,6 +1477,13 @@ ALTER TABLE `prescription_items`
 ALTER TABLE `queue_entries`
   ADD CONSTRAINT `queue_entries_ibfk_1` FOREIGN KEY (`patient_id`) REFERENCES `patients` (`id`),
   ADD CONSTRAINT `queue_entries_ibfk_2` FOREIGN KEY (`doctor_username`) REFERENCES `users` (`username`);
+
+--
+-- Constraints for table `test_results`
+--
+ALTER TABLE `test_results`
+  ADD CONSTRAINT `test_results_ibfk_1` FOREIGN KEY (`queue_entry_id`) REFERENCES `queue_entries` (`id`),
+  ADD CONSTRAINT `test_results_ibfk_2` FOREIGN KEY (`patient_id`) REFERENCES `patients` (`id`);
 
 --
 -- Constraints for table `vitals`
