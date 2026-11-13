@@ -1,0 +1,374 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>My Account - Dumaual Medical Clinic</title>
+    <link rel="stylesheet" href="../css/style.css">
+    <style>
+        body { background: #F5F7F6; }
+        .top {
+            background: #fff; border-bottom: 1px solid var(--bd); padding: 14px 22px;
+            display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;
+        }
+        .top b { color: var(--gd); font-size: 17px; }
+        .top small { display: block; color: var(--tx2); }
+        .wrap { max-width: 960px; margin: 0 auto; padding: 22px 16px 40px; }
+        .tabs { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 16px; }
+        .tab {
+            border: 1px solid var(--bd); background: #fff; border-radius: 999px;
+            padding: 8px 16px; cursor: pointer; font: inherit; color: var(--tx2);
+        }
+        .tab.on { background: var(--g); border-color: var(--g); color: #fff; }
+        .section { display: none; }
+        .section.on { display: block; }
+        .slots { display: grid; grid-template-columns: repeat(auto-fill, minmax(110px, 1fr)); gap: 8px; margin: 12px 0; }
+        .slot {
+            border: 1px solid var(--bd); background: #fff; border-radius: 8px;
+            padding: 9px; cursor: pointer; font: inherit;
+        }
+        .slot:disabled { background: #eceff1; color: #9aa5ab; text-decoration: line-through; cursor: not-allowed; }
+        .slot.on { background: var(--g); color: #fff; border-color: var(--g); }
+        .row {
+            display: flex; justify-content: space-between; align-items: center;
+            gap: 10px; flex-wrap: wrap; padding: 10px 0; border-bottom: 1px solid var(--bd);
+        }
+        .small { color: var(--tx2); font-size: 12px; }
+        .msg { min-height: 20px; margin: 8px 0; }
+        .msg.ok { color: var(--g); }
+        .msg.bad { color: var(--red); }
+        .taking { background: var(--gl); color: var(--gd); }
+        .finished { background: #eceff1; color: #455a64; }
+        .ask { background: #fff4e0; color: var(--amb); }
+        .status-pill { padding: 2px 10px; border-radius: 12px; font-size: 12px; font-weight: 600; }
+        .empty { padding: 18px; text-align: center; color: var(--tx2); }
+        .hours { font-size: 13px; line-height: 1.7; color: var(--tx2); }
+    </style>
+</head>
+<body>
+    <header class="top">
+        <div>
+            <b>Dumaual Medical Clinic</b>
+            <small>Patient Portal</small>
+        </div>
+        <button class="btn ghost" id="logoutButton" type="button">Log out</button>
+    </header>
+
+    <main class="wrap">
+        <div class="card">
+            <h2 id="welcomeText">Welcome</h2>
+            <div class="msg" id="welcomeNote"></div>
+        </div>
+
+        <div class="tabs">
+            <button class="tab" data-tab="visit" type="button">Book a visit</button>
+            <button class="tab" data-tab="bookings" type="button">My visits</button>
+            <button class="tab" data-tab="prescriptions" type="button">Prescriptions</button>
+            <button class="tab" data-tab="medications" type="button">Medicines</button>
+        </div>
+
+        <!-- Book a visit -->
+        <section class="section card" id="tab-visit">
+            <h3>Choose a date and time</h3>
+            <div class="form-grid">
+                <div class="fg">
+                    <label for="visitDate">Date</label>
+                    <input id="visitDate" type="date">
+                </div>
+                <div class="fg">
+                    <label for="visitReason">Reason for visit</label>
+                    <select id="visitReason">
+                        <option>Check-up</option>
+                        <option>X-ray</option>
+                        <option>Urine Test</option>
+                        <option>Blood Test</option>
+                        <option>Getting Blood</option>
+                        <option>Getting Urine</option>
+                    </select>
+                </div>
+            </div>
+            <p class="small" id="slotHint"></p>
+            <div class="slots" id="slotGrid"></div>
+            <button class="btn" id="bookButton" type="button" disabled>Book this time</button>
+            <div class="msg" id="visitMsg"></div>
+            <p class="small">Clinic hours: Monday to Friday 8:00 am to 4:00 pm. Saturday 8:00 am to 12:00 pm. Closed on Sunday.</p>
+        </section>
+
+        <!-- My visits -->
+        <section class="section card" id="tab-bookings">
+            <h3>My visits</h3>
+            <div class="msg" id="bookingMsg"></div>
+            <div id="bookingList"></div>
+        </section>
+
+        <!-- Prescriptions -->
+        <section class="section" id="tab-prescriptions">
+            <div id="prescriptionList"></div>
+        </section>
+
+        <!-- Medicines -->
+        <section class="section card" id="tab-medications">
+            <h3>Medicines</h3>
+            <p class="small">Shows each medicine from your prescriptions, and whether you are still taking it.</p>
+            <div id="medicationList"></div>
+        </section>
+
+        <div class="card" style="margin-top:16px">
+            <h3>Clinic information</h3>
+            <div class="hours">
+                2164 Primo Rivera St., Brgy. La Paz, Makati City<br>
+                Tel. No.: 8890-1515 / 8401-2996
+            </div>
+        </div>
+    </main>
+
+    <script>
+        const api = "api/portal.php?action=";
+
+        function el(tag, text, className) {
+            const node = document.createElement(tag);
+            if (text !== undefined && text !== null) { node.textContent = text; }
+            if (className) { node.className = className; }
+            return node;
+        }
+
+        function showMsg(id, text, ok) {
+            const box = document.getElementById(id);
+            box.textContent = text;
+            box.className = "msg " + (ok ? "ok" : "bad");
+        }
+
+        function todayText() {
+            const now = new Date();
+            const month = String(now.getMonth() + 1).padStart(2, "0");
+            const day = String(now.getDate()).padStart(2, "0");
+            return now.getFullYear() + "-" + month + "-" + day;
+        }
+
+        async function request(action, body, query) {
+            const options = body
+                ? { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) }
+                : {};
+            const response = await fetch(api + action + (query || ""), options);
+            if (response.status === 401) {
+                window.location.replace("../index.html");
+                throw new Error("Please sign in again.");
+            }
+            let reply = {};
+            try {
+                reply = await response.json();
+            } catch (error) {
+                throw new Error("The server did not answer. Check that Apache and MySQL are running in XAMPP.");
+            }
+            if (!response.ok || reply.success === false) {
+                throw new Error(reply.message || "Something went wrong.");
+            }
+            return reply;
+        }
+
+        // ----- Tabs -----
+
+        function showTab(name) {
+            document.querySelectorAll(".tab").forEach(function (button) {
+                button.classList.toggle("on", button.dataset.tab === name);
+            });
+            document.querySelectorAll(".section").forEach(function (section) {
+                section.classList.toggle("on", section.id === "tab-" + name);
+            });
+            if (name === "visit") { loadSlots(); }
+            if (name === "bookings") { loadBookings(); }
+            if (name === "prescriptions") { loadPrescriptions(); }
+            if (name === "medications") { loadMedications(); }
+        }
+
+        document.querySelectorAll(".tab").forEach(function (button) {
+            button.addEventListener("click", function () { showTab(button.dataset.tab); });
+        });
+
+        // ----- Book a visit -----
+
+        const visitDate = document.getElementById("visitDate");
+        const bookButton = document.getElementById("bookButton");
+        let chosenTime = "";
+
+        visitDate.min = todayText();
+        visitDate.value = todayText();
+        visitDate.addEventListener("change", loadSlots);
+
+        function updateBookButton() {
+            bookButton.disabled = chosenTime === "" || visitDate.value === "";
+        }
+
+        async function loadSlots() {
+            const grid = document.getElementById("slotGrid");
+            const hint = document.getElementById("slotHint");
+            grid.replaceChildren();
+            chosenTime = "";
+            updateBookButton();
+
+            if (visitDate.value === "") {
+                hint.textContent = "Choose a date to see the free times.";
+                return;
+            }
+            try {
+                const reply = await request("slots", null, "&date=" + encodeURIComponent(visitDate.value));
+                if (reply.slots.length === 0) {
+                    hint.textContent = "The clinic is closed on that day. Please choose another date.";
+                    return;
+                }
+                hint.textContent = "Grey times are already taken or have passed. Choose a free time.";
+                reply.slots.forEach(function (slot) {
+                    const button = el("button", slot.label, "slot");
+                    button.type = "button";
+                    button.disabled = !slot.available;
+                    button.addEventListener("click", function () {
+                        chosenTime = slot.time;
+                        grid.querySelectorAll(".slot").forEach(function (b) { b.classList.remove("on"); });
+                        button.classList.add("on");
+                        updateBookButton();
+                    });
+                    grid.appendChild(button);
+                });
+            } catch (error) {
+                showMsg("visitMsg", error.message, false);
+            }
+        }
+
+        bookButton.addEventListener("click", async function () {
+            bookButton.disabled = true;
+            try {
+                const reply = await request("book", {
+                    date: visitDate.value,
+                    time: chosenTime,
+                    reason: document.getElementById("visitReason").value
+                });
+                showMsg("visitMsg", reply.message, true);
+            } catch (error) {
+                showMsg("visitMsg", error.message, false);
+            }
+            loadSlots();
+        });
+
+        // ----- My visits -----
+
+        async function loadBookings() {
+            const list = document.getElementById("bookingList");
+            list.replaceChildren();
+            try {
+                const reply = await request("bookings");
+                if (reply.bookings.length === 0) {
+                    list.appendChild(el("div", "You have no visits booked yet.", "empty"));
+                    return;
+                }
+                reply.bookings.forEach(function (b) {
+                    const row = el("div", null, "row");
+                    const info = el("div");
+                    info.appendChild(el("b", b.booking_date + " at " + b.label));
+                    info.appendChild(el("div", b.reason + " · " + b.status, "small"));
+                    row.appendChild(info);
+
+                    const isUpcoming = b.status === "Booked" && b.booking_date >= todayText();
+                    if (isUpcoming) {
+                        const cancel = el("button", "Cancel visit", "btn danger sm");
+                        cancel.type = "button";
+                        cancel.addEventListener("click", async function () {
+                            try {
+                                await request("cancel", { id: b.id });
+                                showMsg("bookingMsg", "Your visit was cancelled.", true);
+                            } catch (error) {
+                                showMsg("bookingMsg", error.message, false);
+                            }
+                            loadBookings();
+                        });
+                        row.appendChild(cancel);
+                    }
+                    list.appendChild(row);
+                });
+            } catch (error) {
+                list.appendChild(el("div", error.message, "empty"));
+            }
+        }
+
+        // ----- Prescriptions -----
+
+        async function loadPrescriptions() {
+            const list = document.getElementById("prescriptionList");
+            list.replaceChildren();
+            try {
+                const reply = await request("prescriptions");
+                if (reply.records.length === 0) {
+                    list.appendChild(el("div", "No prescriptions on record yet.", "card empty"));
+                    return;
+                }
+                reply.records.forEach(function (record) {
+                    const card = el("div", null, "card");
+                    card.appendChild(el("h3", record.date + " · " + record.doctor));
+                    card.appendChild(el("div", record.source, "small"));
+
+                    record.medicines.forEach(function (m) {
+                        const row = el("div", null, "row");
+                        const info = el("div");
+                        info.appendChild(el("b", (m.name + " " + m.dosage).trim()));
+                        const details = [m.frequency, m.duration ? "for " + m.duration : "", m.quantity ? "qty " + m.quantity : ""]
+                            .filter(Boolean).join(" · ");
+                        info.appendChild(el("div", details, "small"));
+                        if (m.instructions) { info.appendChild(el("div", m.instructions, "small")); }
+                        row.appendChild(info);
+                        card.appendChild(row);
+                    });
+                    list.appendChild(card);
+                });
+            } catch (error) {
+                list.appendChild(el("div", error.message, "card empty"));
+            }
+        }
+
+        // ----- Medicines -----
+
+        async function loadMedications() {
+            const list = document.getElementById("medicationList");
+            list.replaceChildren();
+            try {
+                const reply = await request("medications");
+                if (reply.medicines.length === 0) {
+                    list.appendChild(el("div", "No medicines on record yet.", "empty"));
+                    return;
+                }
+                const pillClass = { "Taking now": "taking", "Finished": "finished", "Ask the clinic": "ask" };
+                reply.medicines.forEach(function (m) {
+                    const row = el("div", null, "row");
+                    const info = el("div");
+                    info.appendChild(el("b", (m.name + " " + m.dosage).trim()));
+                    info.appendChild(el("div", m.frequency + " · " + m.duration + " · from " + m.date + " · " + m.source, "small"));
+                    if (m.until !== "-") { info.appendChild(el("div", "Until " + m.until, "small")); }
+                    row.appendChild(info);
+                    row.appendChild(el("span", m.status, "status-pill " + (pillClass[m.status] || "")));
+                    list.appendChild(row);
+                });
+            } catch (error) {
+                list.appendChild(el("div", error.message, "empty"));
+            }
+        }
+
+        // ----- Start -----
+
+        document.getElementById("logoutButton").addEventListener("click", async function () {
+            try { await request("logout"); } catch (error) { /* ignore */ }
+            window.location.replace("../index.html");
+        });
+
+        (async function start() {
+            try {
+                const reply = await request("me");
+                document.getElementById("welcomeText").textContent = "Welcome, " + reply.fullName;
+                if (!reply.linked) {
+                    showMsg("welcomeNote", "Your account is approved. Your visit and prescription records appear once the clinic links them to your file.", true);
+                }
+                showTab("visit");
+            } catch (error) {
+                showMsg("welcomeNote", error.message, false);
+            }
+        })();
+    </script>
+</body>
+</html>
