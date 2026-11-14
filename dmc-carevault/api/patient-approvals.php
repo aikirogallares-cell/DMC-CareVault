@@ -60,12 +60,23 @@ function create_patient_record(PDO $pdo, array $account): string {
 
     $isGuardianNeeded = !empty($account['guardian_name']);
 
+    // Past history and family history share one field in Patient Records.
+    $historyParts = [];
+    if (!empty($account['past_medical_history'])) {
+        $historyParts[] = 'Past: ' . $account['past_medical_history'];
+    }
+    if (!empty($account['family_history'])) {
+        $historyParts[] = 'Family: ' . $account['family_history'];
+    }
+    $conditions = $historyParts ? implode(' | ', $historyParts) : 'None';
+    $allergies = !empty($account['allergy_history']) ? $account['allergy_history'] : 'None';
+
     $pdo->prepare('INSERT INTO patients
-        (id, first_name, middle_name, last_name, birth_date, gender, civil_status, contact_number,
+        (id, first_name, middle_name, last_name, birth_date, gender, civil_status, contact_number, address,
          emergency_name, emergency_relationship, emergency_contact_number,
          blood_type, allergies, medical_conditions, current_medications,
          date_registered, last_visit, is_archived, is_pwd)
-        VALUES (?, ?, NULL, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL, 0, 0)')
+        VALUES (?, ?, NULL, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL, 0, 0)')
         ->execute([
             $patientId,
             $firstName,
@@ -74,12 +85,13 @@ function create_patient_record(PDO $pdo, array $account): string {
             $account['gender'],
             'Single',
             $account['contact_number'],
+            $account['address'] ?: null,
             $isGuardianNeeded ? $account['guardian_name'] : null,
             $isGuardianNeeded ? $account['guardian_relationship'] : null,
             $isGuardianNeeded ? $account['guardian_contact'] : null,
             'Unknown',
-            'None',
-            'None',
+            $allergies,
+            $conditions,
             'None',
             date('Y-m-d'),
         ]);

@@ -1,6 +1,6 @@
 /*
  * LoginPage.js
- * Purpose: controls index.html (the login screen).
+ * Purpose: controls clinic-info.html (the login screen).
  * It only handles the screen. The real login checking is done by AuthService.
  */
 class LoginPage {

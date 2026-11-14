@@ -3,7 +3,7 @@
  * patient/api/account.php - patient registration, "who is logged in", and logout.
  * New accounts start as Pending. Patients aged 18 or younger must give a guardian.
  */
-require __DIR__ . '/../../api/config.php';
+require __DIR__ . '/../../apiclinic/config.php';
 
 const GUARDIAN_AGE_LIMIT = 18;
 
@@ -42,6 +42,11 @@ if ($action === 'register') {
     $gender               = clean_text($in['gender'] ?? '');
     $contact              = clean_text($in['contactNumber'] ?? '');
     $email                = clean_text($in['email'] ?? '');
+    $address              = clean_text($in['address'] ?? '');
+    $weight               = clean_text($in['weightKg'] ?? '');
+    $pastHistory          = clean_text($in['pastMedicalHistory'] ?? '');
+    $familyHistory        = clean_text($in['familyHistory'] ?? '');
+    $allergyHistory       = clean_text($in['allergyHistory'] ?? '');
     $guardianName         = clean_text($in['guardianName'] ?? '');
     $guardianContact      = clean_text($in['guardianContact'] ?? '');
     $guardianRelationship = clean_text($in['guardianRelationship'] ?? '');
@@ -75,6 +80,18 @@ if ($action === 'register') {
     if ($email !== '' && (mb_strlen($email) > 100 || !filter_var($email, FILTER_VALIDATE_EMAIL))) {
         throw new UserError('Email address is not valid.');
     }
+    if ($address === '' || mb_strlen($address) > 255) {
+        throw new UserError('Address is required (255 characters at most).');
+    }
+    if ($weight !== '' && (!is_numeric($weight) || (float)$weight < 1 || (float)$weight > 300)) {
+        throw new UserError('Weight must be a number between 1 and 300 kg.');
+    }
+    $histories = ['Past medical history' => $pastHistory, 'Family history' => $familyHistory, 'History of allergy' => $allergyHistory];
+    foreach ($histories as $label => $text) {
+        if (mb_strlen($text) > 1000) {
+            throw new UserError($label . ' is too long (1000 characters at most).');
+        }
+    }
 
     // Guardian rules: required automatically when the patient is 18 or younger.
     $age = (new DateTime($birthDate))->diff(new DateTime('today'))->y;
@@ -93,7 +110,6 @@ if ($action === 'register') {
             throw new UserError('Choose the guardian\'s relationship to the patient.');
         }
     } else {
-        // Adults do not need a guardian, so nothing is saved.
         $guardianName = '';
         $guardianContact = '';
         $guardianRelationship = '';
@@ -116,8 +132,9 @@ if ($action === 'register') {
     try {
         $insert = $pdo->prepare("INSERT INTO patient_accounts
             (username, password_hash, full_name, birth_date, gender, contact_number, email,
+             address, weight_kg, past_medical_history, family_history, allergy_history,
              guardian_name, guardian_contact, guardian_relationship, status, is_active)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'Pending', 1)");
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'Pending', 1)");
         $insert->execute([
             $username,
             password_hash($password, PASSWORD_DEFAULT),
@@ -126,6 +143,11 @@ if ($action === 'register') {
             $gender,
             $contact,
             $email === '' ? null : $email,
+            $address,
+            $weight === '' ? null : (float)$weight,
+            $pastHistory === '' ? null : $pastHistory,
+            $familyHistory === '' ? null : $familyHistory,
+            $allergyHistory === '' ? null : $allergyHistory,
             $guardianName === '' ? null : $guardianName,
             $guardianContact === '' ? null : $guardianContact,
             $guardianRelationship === '' ? null : $guardianRelationship,
@@ -137,7 +159,6 @@ if ($action === 'register') {
         throw $e;
     }
 
-    // No session is started here. The patient must wait for approval.
     json_out([
         'success' => true,
         'pending' => true,

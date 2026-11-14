@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Your PIN - DMC CareVault</title>
+    <link rel="stylesheet" href="css/style.css">
+    <style>
+        body {
+            min-height: 100vh; margin: 0; display: flex; align-items: center; justify-content: center; padding: 20px;
+            background: linear-gradient(135deg, #1B5E20 0%, #2E7D32 40%, #E8F5E9 40%, #F5F7F6 100%);
+        }
+        .card-pin {
+            background: #fff; border-radius: 16px; padding: 30px; width: 100%; max-width: 420px;
+            box-shadow: 0 14px 40px rgba(0,0,0,.18);
+        }
+        .card-pin h2 { margin: 0 0 8px; font-size: 22px; }
+        .card-pin p { color: var(--tx2); font-size: 13px; line-height: 1.5; margin: 0 0 14px; }
+        .pin-input { font-size: 22px; letter-spacing: 8px; text-align: center; }
+        .card-pin .btn { width: 100%; padding: 11px; margin-top: 10px; }
+        .card-pin .back { display: block; text-align: center; margin-top: 14px; font-size: 13px; color: var(--g); }
+        .hidden { display: none !important; }
+    </style>
+</head>
+<body>
+    <main class="card-pin">
+        <h2 id="title">Your PIN</h2>
+        <p id="hint"></p>
+
+        <!-- First sign-in: create the PIN -->
+        <div id="setBox" class="hidden">
+            <div class="fg">
+                <label for="newPin">Create a 4 to 6 digit PIN</label>
+                <input id="newPin" class="pin-input" type="password" inputmode="numeric" maxlength="6" autocomplete="off">
+            </div>
+            <div class="fg">
+                <label for="confirmPin">Type the PIN again</label>
+                <input id="confirmPin" class="pin-input" type="password" inputmode="numeric" maxlength="6" autocomplete="off">
+            </div>
+        </div>
+
+        <!-- Every later sign-in: enter the PIN -->
+        <div id="verifyBox" class="hidden">
+            <div class="fg">
+                <label for="pinInput">Enter your PIN</label>
+                <input id="pinInput" class="pin-input" type="password" inputmode="numeric" maxlength="6" autocomplete="off">
+            </div>
+        </div>
+
+        <div class="err" id="error" role="alert"></div>
+        <button class="btn" id="submitButton" disabled>Continue</button>
+        <a class="back" href="clinichomepage.html">Back to sign in</a>
+    </main>
+
+    <script>
+        let mode = "verify";
+        const errorBox = document.getElementById("error");
+        const submitButton = document.getElementById("submitButton");
+
+        function setError(text) {
+            errorBox.textContent = text;
+        }
+
+        async function call(action, body) {
+            const response = await fetch("api/pin.php?action=" + action, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(body || {})
+            });
+            let reply = {};
+            try {
+                reply = await response.json();
+            } catch (error) {
+                throw new Error("The server did not answer. Check that Apache and MySQL are running in XAMPP.");
+            }
+            if (!response.ok || reply.success === false) {
+                throw new Error(reply.message || "Something went wrong.");
+            }
+            return reply;
+        }
+
+        async function loadStep() {
+            try {
+                const status = await call("status");
+                mode = status.mode;
+
+                if (mode === "set") {
+                    document.getElementById("title").textContent = "Create your PIN";
+                    document.getElementById("hint").textContent =
+                        "This is your first sign-in. Choose a PIN only you know. You will type it on every sign-in, and you can change it later in Settings.";
+                    document.getElementById("setBox").classList.remove("hidden");
+                    document.getElementById("newPin").focus();
+                } else {
+                    document.getElementById("hint").textContent = "Enter the PIN you set for your account.";
+                    document.getElementById("verifyBox").classList.remove("hidden");
+                    document.getElementById("pinInput").focus();
+                }
+
+                if (status.lockSeconds > 0) {
+                    setError("Too many wrong PINs. Try again in " + Math.ceil(status.lockSeconds / 60) + " minute(s).");
+                    return;
+                }
+                submitButton.disabled = false;
+            } catch (error) {
+                setError(error.message);
+            }
+        }
+
+        async function submitPin() {
+            setError("");
+            submitButton.disabled = true;
+
+            const body = mode === "set"
+                ? { pin: document.getElementById("newPin").value.trim(),
+                    confirm: document.getElementById("confirmPin").value.trim() }
+                : { pin: document.getElementById("pinInput").value.trim() };
+
+            try {
+                const reply = await call(mode === "set" ? "set" : "verify", body);
+                // The staff pages check this browser-side session, so set it now that the PIN is correct.
+                sessionStorage.setItem("dmcv2_session", JSON.stringify({
+                    username: reply.user.username,
+                    lastActivity: Date.now(),
+                    token: ""
+                }));
+                window.location.href = reply.redirect;
+            } catch (error) {
+                document.getElementById("newPin").value = "";
+                document.getElementById("confirmPin").value = "";
+                document.getElementById("pinInput").value = "";
+                setError(error.message);
+                submitButton.disabled = false;
+            }
+        }
+
+        submitButton.addEventListener("click", submitPin);
+        ["newPin", "confirmPin", "pinInput"].forEach(function (id) {
+            document.getElementById(id).addEventListener("keydown", function (event) {
+                if (event.key === "Enter") { submitPin(); }
+            });
+        });
+
+        loadStep();
+    </script>
+</body>
+</html>

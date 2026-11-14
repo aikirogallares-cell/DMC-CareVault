@@ -545,6 +545,7 @@ function read_appointments(array $user): array {
         $list[] = [
             'id' => $r['id'], 'patientId' => $r['patient_id'], 'doctorUsername' => $r['doctor_username'],
             'date' => $r['visit_date'], 'reason' => $r['reason'], 'priority' => $r['priority'],
+            'slotStart' => $r['slot_start'] ? substr($r['slot_start'], 0, 5) : null,
             'status' => $r['status'], 'queueNumber' => $r['queue_number'] === null ? null : (int)$r['queue_number'],
             'queuedAt' => $iso($r['queued_at']), 'startedAt' => $iso($r['started_at']),
             'completedAt' => $iso($r['completed_at']), 'doctorFinishedAt' => $iso($r['doctor_finished_at']),
@@ -563,7 +564,7 @@ function save_appointments(PDO $pdo, array $a, bool $isNew, array $user): void {
     if (!in_array($status, $statuses, true)) {
         throw new UserError('Choose a valid queue status.');
     }
-    $doctor = need(sv($a, 'doctorUsername'), 'Doctor');
+    $doctor = sv($a, 'doctorUsername');
 
     // Doctors may not add queue entries, and may only change the visits of their own patients.
     if ($user['role'] === 'Doctor') {
@@ -587,7 +588,7 @@ function save_appointments(PDO $pdo, array $a, bool $isNew, array $user): void {
     }
 
     $priority = sv($a, 'priority');
-    if (!in_array($priority, ['Regular', 'Senior Citizen', 'PWD', 'Emergency'], true)) {
+   if (!in_array($priority, ['Regular', 'Senior Citizen', 'PWD', 'Emergency', 'Scheduled'], true)) {
         $priority = 'Regular';
     }
 
@@ -595,10 +596,11 @@ function save_appointments(PDO $pdo, array $a, bool $isNew, array $user): void {
     $row = [
         'id' => $id,
         'patient_id' => need(sv($a, 'patientId'), 'Patient'),
-        'doctor_username' => $doctor,
+        'doctor_username' => $doctor === '' ? null : $doctor,
         'visit_date' => check_date(sv($a, 'date'), 'Date', true),
         'reason' => need(sv($a, 'reason'), 'Reason'),
         'priority' => $priority,
+        'slot_start' => nz(sv($a, 'slotStart')),
         'status' => $status,
         'queue_number' => ($queueNumber === null || $queueNumber === '') ? null : (int)$queueNumber,
         'queued_at' => to_datetime(sv($a, 'queuedAt')),

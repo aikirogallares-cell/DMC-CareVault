@@ -109,21 +109,16 @@ class AppointmentService {
 
     // existingAppointment is the saved record when editing, or null when adding a new one.
     validateAppointmentData(data, existingAppointment) {
-        let error = validator.checkRequired("Patient", data.patientId);
-        if (error !== "") { return error; }
+    let error = validator.checkRequired("Patient", data.patientId);
+    if (error !== "") { return error; }
 
-        error = validator.checkRequired("Doctor", data.doctorUsername);
-        if (error !== "") { return error; }
+    error = validator.checkRequired("Reason", data.reason);
+    if (error !== "") { return error; }
 
-        error = validator.checkRequired("Reason", data.reason);
-        if (error !== "") { return error; }
-
-        // Any reason may be typed (for example "cough and colds"). It only has to fit on the screen.
-        if (String(data.reason).trim().length > 100) {
-            return "Reason is too long (100 characters at most).";
-        }
-
-        return "";
+    if (String(data.reason).trim().length > 100) {
+        return "Reason is too long (100 characters at most).";
+    }
+    return "";
     }
 
     // data.id empty -> create. data.id filled -> update.
@@ -235,7 +230,7 @@ class AppointmentService {
             }
         }
         waitingList.sort(function (first, second) {
-            return service.compareQueueOrder(first, second);
+            return service.compareServeOrder(first, second);
         });
 
         const firstInLine = {};
@@ -251,6 +246,148 @@ class AppointmentService {
         }
         return serveFirstMap;
     }
+
+    // How long a booked patient has to come back after being called into the line.
+    getHoldMinutes() {
+        return 5;
+    }
+
+    // A booked visit has priority "Scheduled" and a booked time.
+    isScheduledVisit(entry) {
+        return entry.priority === "Scheduled" && !!entry.slotStart;
+    }
+
+    // The booked time as a date (local time), for example 2026-11-14 08:00.
+    getSlotTime(entry) {
+        return new Date(entry.date + "T" + entry.slotStart);
+    }
+
+
+getJoinTime(entry) {
+    return new Date(entry.queuedAt).getTime() || 0;
+}
+
+// Display and serve groups. Lower numbers come first.
+//   0  waiting in the line (first come, first served)
+//   1  booked, not yet called
+//   2  in consultation
+//   3  on hold
+//   4  completed or cancelled
+serveRank(entry) {
+    if (entry.status === "Waiting") { return 0; }
+    if (entry.status === "Scheduled") { return 1; }
+    if (entry.status === "In Consultation") { return 2; }
+    if (entry.status === "Missing") { return 3; }
+    return 4;
+}
+
+compareServeOrder(first, second) {
+    const rankDifference = this.serveRank(first) - this.serveRank(second);
+    if (rankDifference !== 0) {
+        return rankDifference;
+    }
+
+    const rank = this.serveRank(first);
+    if (rank === 0) {
+        // First come, first served: whoever joined the line first goes first.
+        // The queue number only breaks a tie.
+        const joinDifference = this.getJoinTime(first) - this.getJoinTime(second);
+        if (joinDifference !== 0) {
+            return joinDifference;
+        }
+        return (first.queueNumber || 0) - (second.queueNumber || 0);
+    }
+    if (rank === 1) {
+        return String(first.slotStart).localeCompare(String(second.slotStart));
+    }
+    return this.compareQueueOrder(first, second);
+}
+
+    // Runs the booked-visit rules for today. Called by the Queuing page on open, after each action, and every 30 seconds.
+    //   1. A booked patient who was called more than 5 minutes ago and has not come back goes on hold.
+    //   2. A booked visit whose time has come joins the line as Waiting, with the next queue number.
+    // Returns { called: [...], held: [...] } so the page can show what changed.
+
+        runScheduleRules() {
+            const result = { called: [], held: [] };
+            if (!permissionService.userCan("queue.manage")) {
+                return result;
+            }
+
+            const now = new Date();
+            const today = dateHelper.getTodayString();
+            const savedAppointments = storageService.loadList("appointments");
+            let changed = false;
+
+            // Step 1: hold patients who were called and are still not back.
+            for (let i = 0; i < savedAppointments.length; i++) {
+                const entry = savedAppointments[i];
+                if (entry.date !== today || !this.isScheduledVisit(entry)) { continue; }
+
+                if (entry.status === "Waiting" && !entry.returnedAt && entry.queuedAt) {
+                    const calledAt = new Date(entry.queuedAt).getTime();
+                    if (now.getTime() - calledAt >= this.getHoldMinutes() * 60 * 1000) {
+                        entry.status = "Missing";
+                        entry.missingAt = now.toISOString();
+                        result.held.push(entry);
+                        changed = true;
+                    }
+                }
+            }
+
+            // Step 2: call booked patients whose time has come.
+            for (let i = 0; i < savedAppointments.length; i++) {
+                const entry = savedAppointments[i];
+                if (entry.date !== today || !this.isScheduledVisit(entry) || entry.status !== "Scheduled") { continue; }
+
+                if (now >= this.getSlotTime(entry)) {
+                    entry.status = "Waiting";
+                    entry.queueNumber = this.getNextQueueNumber(savedAppointments, today);
+                    entry.queuedAt = now.toISOString();
+                    entry.startedAt = null;
+                    entry.completedAt = null;
+                    result.called.push(entry);
+                    changed = true;
+                }
+            }
+
+            if (changed) {
+                storageService.saveList("appointments", savedAppointments);
+            }
+            return result;
+        }
+
+        // The clinic decides which doctor sees the patient. Staff choose it here. An empty value clears it.
+        // Only patients still in the queue can be given a doctor.
+        assignDoctor(appointmentId, doctorUsername) {
+            const canUseQueue = permissionService.userCan("queue.manage") || permissionService.userCan("appointments.manage");
+            if (!canUseQueue) {
+                throw new Error("You do not have permission to perform this action.");
+            }
+
+            const savedAppointments = storageService.loadList("appointments");
+            const appointment = this.findInList(savedAppointments, appointmentId);
+            if (appointment === null) {
+                throw new Error("Appointment not found.");
+            }
+            if (!["Scheduled", "Waiting", "Missing"].includes(appointment.status)) {
+                throw new Error("A doctor can only be chosen while the patient is still in the queue.");
+            }
+
+            const chosen = String(doctorUsername || "").trim();
+            if (chosen !== "") {
+                const isActiveDoctor = userService.getActiveDoctors().some(function (doctor) {
+                    return doctor.username === chosen;
+                });
+                if (!isActiveDoctor) {
+                    throw new Error("That doctor is not active.");
+                }
+            }
+
+            appointment.doctorUsername = chosen === "" ? null : chosen;
+            storageService.saveList("appointments", savedAppointments);
+            auditLogService.recordAction("Doctor assigned", appointmentId + " -> " + (chosen || "not decided"));
+        }
 
     // Used by the queue buttons and the Cancel button.
     changeStatus(appointmentId, newStatus) {
@@ -269,6 +406,14 @@ class AppointmentService {
         if (appointment === null) {
             throw new Error("Appointment not found.");
         }
+        // The doctor must be chosen before the patient is sent in.
+        if (newStatus === "In Consultation" && !appointment.doctorUsername) {
+            throw new Error("Choose the doctor for this patient first (press Assign doctor).");
+        }
+        // A booked visit joins the line by itself at its time, so staff cannot check it in early.
+        if (newStatus === "Waiting" && appointment.status === "Scheduled" && this.isScheduledVisit(appointment)) {
+            throw new Error("This patient is booked for " + appointment.slotStart + ". They join the line automatically at that time.");
+        }
 
         // Missing patients: only a waiting patient can be skipped. A missing patient must come back
         // into the line ("Waiting") before they can be sent to the doctor (or the entry is cancelled).
@@ -282,9 +427,10 @@ class AppointmentService {
         // First come, first served: a patient cannot be sent to the doctor while someone who came earlier is still waiting.
         if (newStatus === "In Consultation") {
             const mustGoFirst = this.getServeFirstMap(savedAppointments)[appointment.id];
-            if (mustGoFirst !== undefined) {
-                throw new Error("First come, first served: queue number " + mustGoFirst.queueNumber + " (" +
-                    patientService.getPatientNameById(mustGoFirst.patientId) + ") arrived first and must be sent to the doctor first.");
+           if (mustGoFirst !== undefined) {
+            throw new Error(patientService.getPatientNameById(mustGoFirst.patientId) +
+                " joined the line before this patient (queue number " + mustGoFirst.queueNumber +
+                ") and must be sent first.");
             }
         }
 

@@ -25,7 +25,7 @@ class PageLayout {
         // 1. Nobody signed in on this tab -> go to the login page.
         const currentUser = authService.getCurrentUser();
         if (currentUser === null) {
-            window.location.replace("../index.html");
+            window.location.replace("../clinichomepage.html");
             return;
         }
 
@@ -101,7 +101,7 @@ class PageLayout {
         } else {
             sessionStorage.setItem("dmcv2_flashMessage", "Another account signed in on this browser. Please log in again.");
         }
-        window.location.replace("../index.html");
+        window.location.replace("../clinichomepage.html");
         return false;
     }
 
@@ -363,7 +363,7 @@ class PageLayout {
             event.preventDefault();
             layout.stopDoctorReadyOnLogout();
             authService.logout();
-            window.location.href = "../index.html";
+            window.location.href = "../clinichomepage.html";
         });
     }
 

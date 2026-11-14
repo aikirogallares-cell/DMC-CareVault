@@ -23,7 +23,7 @@ class StorageService {
 
         this.isInsidePagesFolder = window.location.pathname.indexOf("/pages/") !== -1;
         this.apiPath = this.isInsidePagesFolder ? "../api/" : "api/";
-        this.loginPagePath = this.isInsidePagesFolder ? "../index.html" : "index.html";
+        this.loginPagePath = this.isInsidePagesFolder ? "../clinichomepage.html" : "clinichomepage.html";
     }
 
     // ----- Talking to the PHP server -----

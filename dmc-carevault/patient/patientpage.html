@@ -79,10 +79,7 @@
                     <label for="visitReason">Reason for visit</label>
                     <select id="visitReason">
                         <option>Check-up</option>
-                        <option>X-ray</option>
-                        <option>Urine Test</option>
-                        <option>Blood Test</option>
-                        <option>Getting Blood</option>
+                        <option>Getting Blood(you should fasting for 10 - 12 hourse without taking any food or drink)</option>
                         <option>Getting Urine</option>
                     </select>
                 </div>
@@ -151,7 +148,7 @@
                 : {};
             const response = await fetch(api + action + (query || ""), options);
             if (response.status === 401) {
-                window.location.replace("../index.html");
+                window.location.replace("../clinichomepage.html");
                 throw new Error("Please sign in again.");
             }
             let reply = {};
@@ -354,7 +351,7 @@
 
         document.getElementById("logoutButton").addEventListener("click", async function () {
             try { await request("logout"); } catch (error) { /* ignore */ }
-            window.location.replace("../index.html");
+            window.location.replace("../clinichomepage.html");
         });
 
         (async function start() {

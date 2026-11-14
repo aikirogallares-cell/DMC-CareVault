@@ -1,8 +1,8 @@
 <?php
 /*
  * api/sign-in.php - one login for everyone.
- * The server finds the account and decides the role from it.
- * Staff accounts (users table) are checked first, then patient accounts (patient_accounts).
+ * Staff (users table): password, then PIN (clinic-pin.html), then the dashboard.
+ * Patients (patient_accounts table): password, then the patient page.
  */
 require __DIR__ . '/config.php';
 
@@ -26,19 +26,14 @@ if ($staff && password_verify($password, $staff['password_hash'])) {
         json_out(['success' => false, 'message' => 'This account is deactivated. Please contact the administrator.'], 403);
     }
 
+    // Password is right. The user still has to enter the PIN.
     start_session();
     session_regenerate_id(true);
-    $_SESSION['username'] = $staff['username'];
-    log_action($staff['username'], $staff['role'], 'Login', 'Signed in');
+    unset($_SESSION['username']);
+    $_SESSION['pending_user']  = $staff['username'];
+    $_SESSION['pending_since'] = time();
 
-    $pages = ['Admin' => 'admin-dashboard.html', 'Staff' => 'staff-dashboard.html', 'Doctor' => 'doctor-dashboard.html'];
-
-    json_out([
-        'success'  => true,
-        'area'     => 'staff',
-        'user'     => ['username' => $staff['username'], 'fullName' => $staff['full_name'], 'role' => $staff['role']],
-        'redirect' => 'pages/' . ($pages[$staff['role']] ?? 'doctor-dashboard.html'),
-    ]);
+    json_out(['success' => true, 'area' => 'staff', 'redirect' => 'clinic-pin.html']);
 }
 
 // 2. Patient accounts (their own session name, so they never mix with staff).
@@ -57,7 +52,7 @@ if ($patient && password_verify($password, $patient['password_hash'])) {
     session_regenerate_id(true);
     $_SESSION['patient_account_id'] = (int)$patient['id'];
 
-    json_out(['success' => true, 'area' => 'patient', 'redirect' => 'patient/index.html']);
+    json_out(['success' => true, 'area' => 'patient', 'redirect' => 'patient/patientpage.html']);
 }
 
 // Same message for an unknown username and a wrong password, so usernames cannot be guessed.

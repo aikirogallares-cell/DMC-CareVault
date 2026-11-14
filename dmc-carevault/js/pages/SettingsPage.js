@@ -1,6 +1,6 @@
 /*
  * SettingsPage.js
- * Purpose: every user can see their account and change their own password.
+ * Purpose: every user can see their account, change their sign-in PIN, and change their password.
  * Doctors also enter the numbers printed on their prescriptions (Lic No., PTR No., S2 No., TIN, DEA No., NPI No.).
  */
 class SettingsPage {
@@ -16,6 +16,15 @@ class SettingsPage {
             page.mainElement = mainElement;
             page.showPage(currentUser);
         });
+    }
+
+    // Field names are unique on the page, so they do not clash with the password card.
+    buildPinFields() {
+        return [
+            { name: "pinCurrentPassword", label: "Current Password", type: "password", isFullWidth: true },
+            { name: "newPin", label: "New PIN (4 to 6 digits)", type: "password" },
+            { name: "confirmPin", label: "Type the New PIN again", type: "password" }
+        ];
     }
 
     buildPasswordFields() {
@@ -68,6 +77,11 @@ class SettingsPage {
             html += '<div class="err" id="profileMessage"></div><button class="btn" id="profileButton">Save Prescription Details</button></div>';
         }
 
+        html += '<div class="card"><h3>Change PIN</h3>';
+        html += '<p style="color:var(--tx2);font-size:12px;margin:0 0 12px">Type your current password, then the new PIN twice. You will use the new PIN at every sign-in.</p>';
+        html += formBuilder.buildFormHtml(this.buildPinFields(), {});
+        html += '<div class="err" id="pinMessage"></div><button class="btn" id="pinButton">Change PIN</button></div>';
+
         html += '<div class="card"><h3>Change Password</h3>';
         html += formBuilder.buildFormHtml(this.buildPasswordFields(), {});
         html += '<div class="err" id="passwordMessage"></div><button class="btn" id="passwordButton">Update Password</button></div>';
@@ -75,6 +89,9 @@ class SettingsPage {
         this.mainElement.innerHTML = html;
 
         const page = this;
+        document.getElementById("pinButton").addEventListener("click", function () {
+            page.handlePinChange();
+        });
         document.getElementById("passwordButton").addEventListener("click", function () {
             page.handlePasswordChange();
         });
@@ -82,6 +99,33 @@ class SettingsPage {
             document.getElementById("profileButton").addEventListener("click", function () {
                 page.handleProfileSave(currentUser);
             });
+        }
+    }
+
+    handlePinChange() {
+        const messageElement = document.getElementById("pinMessage");
+        const fields = this.buildPinFields();
+
+        try {
+            const values = formBuilder.readFormValues(fields);
+
+            if (values.newPin !== values.confirmPin) {
+                throw new Error("The two new PINs do not match.");
+            }
+
+            storageService.sendRequest("POST", "my-pin.php?action=change", {
+                currentPassword: values.pinCurrentPassword,
+                newPin: values.newPin,
+                confirm: values.confirmPin
+            });
+
+            for (let i = 0; i < fields.length; i++) {
+                document.getElementById("field_" + fields[i].name).value = "";
+            }
+            messageElement.textContent = "";
+            notifier.showSuccess("Your PIN was changed.");
+        } catch (error) {
+            messageElement.textContent = error.message;
         }
     }
 
@@ -130,7 +174,6 @@ class SettingsPage {
 
             settingsService.changeOwnPassword(values.currentPassword, values.newPassword);
 
-            // Clear the three boxes after success.
             for (let i = 0; i < fields.length; i++) {
                 document.getElementById("field_" + fields[i].name).value = "";
             }

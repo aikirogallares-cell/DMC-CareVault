@@ -57,7 +57,7 @@ if ($action === 'slots') {
 
 if ($action === 'book') {
     book_visit($account, $in);
-    json_out(['success' => true, 'message' => 'Your visit is booked. Please arrive on time and bring a valid ID.']);
+    json_out(['success' => true, 'message' => 'Your visit is booked. The clinic will assign your doctor on the day. Please arrive on time and bring a valid ID.']);
 }
 
 if ($action === 'bookings') {
@@ -128,6 +128,20 @@ function slots_for(string $date): array {
     return $slots;
 }
 
+
+
+
+// A queue ID such as A-483920 that is not used yet (queue_entries.id is 10 characters at most).
+function new_queue_id(PDO $pdo): string {
+    do {
+        $id = 'A-' . random_int(100000, 999999);
+        $st = $pdo->prepare('SELECT COUNT(*) FROM queue_entries WHERE id = ?');
+        $st->execute([$id]);
+    } while ((int)$st->fetchColumn() > 0);
+    return $id;
+}
+
+// Books the visit and creates the Scheduled queue entry. No doctor is chosen here.
 function book_visit(array $account, array $in): void {
     $date   = (string)($in['date'] ?? '');
     $time   = (string)($in['time'] ?? '');
@@ -139,11 +153,16 @@ function book_visit(array $account, array $in): void {
     if ($date < date('Y-m-d')) {
         throw new UserError('You cannot book a date in the past.');
     }
+    if ((int)date('w', strtotime($date)) === 0) {
+        throw new UserError('The clinic is closed on Sundays. Please choose another day.');
+    }
     if (!in_array($reason, VISIT_REASONS, true)) {
         throw new UserError('Choose the reason for your visit.');
     }
+    if (empty($account['patient_id'])) {
+        throw new UserError('Your account is not linked to a patient record yet. Please visit the clinic front desk.');
+    }
 
-    // Check the chosen time again on the server, so a stale page cannot book a taken slot.
     $isFree = false;
     foreach (slots_for($date) as $slot) {
         if ($slot['time'] === $time && $slot['available']) {
@@ -161,8 +180,34 @@ function book_visit(array $account, array $in): void {
         throw new UserError('You already have a visit booked on that day.');
     }
 
-    $pdo->prepare("INSERT INTO patient_bookings (patient_account_id, patient_id, booking_date, slot_time, reason, status) VALUES (?, ?, ?, ?, ?, 'Booked')")
-        ->execute([$account['id'], $account['patient_id'], $date, $time . ':00', $reason]);
+    $slotTime = $time . ':00';
+    $pdo->beginTransaction();
+    try {
+        // Locks the slot so two patients cannot take the same time at the same moment.
+        $lock = $pdo->prepare("SELECT id FROM patient_bookings WHERE booking_date = ? AND slot_time = ? AND status = 'Booked' FOR UPDATE");
+        $lock->execute([$date, $slotTime]);
+        if ($lock->fetch()) {
+            throw new UserError('That time was just taken. Please choose another time.');
+        }
+
+        $queueId = new_queue_id($pdo);
+        $pdo->prepare("INSERT INTO queue_entries
+                (id, patient_id, doctor_username, visit_date, reason, priority, status,
+                 queue_number, queued_at, started_at, completed_at, slot_start)
+            VALUES (?, ?, NULL, ?, ?, 'Scheduled', 'Scheduled', NULL, NULL, NULL, NULL, ?)")
+            ->execute([$queueId, $account['patient_id'], $date, $reason, $slotTime]);
+
+        $pdo->prepare("INSERT INTO patient_bookings
+                (patient_account_id, patient_id, doctor_username, queue_entry_id, booking_date, slot_time, reason, status)
+            VALUES (?, ?, NULL, ?, ?, ?, ?, 'Booked')")
+            ->execute([$account['id'], $account['patient_id'], $queueId, $date, $slotTime, $reason]);
+
+        $pdo->commit();
+    } catch (Throwable $e) {
+        $pdo->rollBack();
+        throw $e;
+    }
+
     log_action($account['username'], 'Patient', 'Visit booked', $date . ' ' . $time . ' (' . $reason . ')');
 }
 
@@ -183,10 +228,29 @@ function list_bookings(array $account): array {
 }
 
 function cancel_booking(array $account, int $id): void {
-    $st = db()->prepare("UPDATE patient_bookings SET status = 'Cancelled' WHERE id = ? AND patient_account_id = ? AND status = 'Booked' AND booking_date >= CURDATE()");
+    $pdo = db();
+    $st = $pdo->prepare("SELECT id, queue_entry_id FROM patient_bookings WHERE id = ? AND patient_account_id = ? AND status = 'Booked' AND booking_date >= CURDATE()");
     $st->execute([$id, $account['id']]);
-    if ($st->rowCount() === 0) {
+    $booking = $st->fetch();
+    if (!$booking) {
         throw new UserError('This visit cannot be cancelled.');
+    }
+
+    $pdo->beginTransaction();
+    try {
+        if (!empty($booking['queue_entry_id'])) {
+            // Only a visit that has not been checked in yet can be cancelled here.
+            $queue = $pdo->prepare("UPDATE queue_entries SET status = 'Cancelled' WHERE id = ? AND status = 'Scheduled'");
+            $queue->execute([$booking['queue_entry_id']]);
+            if ($queue->rowCount() === 0) {
+                throw new UserError('You have already checked in at the clinic, so this visit cannot be cancelled here. Please tell the front desk.');
+            }
+        }
+        $pdo->prepare("UPDATE patient_bookings SET status = 'Cancelled' WHERE id = ?")->execute([$id]);
+        $pdo->commit();
+    } catch (Throwable $e) {
+        $pdo->rollBack();
+        throw $e;
     }
     log_action($account['username'], 'Patient', 'Visit cancelled', 'Booking #' . $id);
 }

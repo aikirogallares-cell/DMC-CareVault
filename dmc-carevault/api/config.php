@@ -87,3 +87,33 @@ function log_action(?string $username, ?string $role, string $action, ?string $d
         $details === null ? null : mb_substr($details, 0, 255),
     ]);
 }
+ini_set('display_errors', '0');
+
+set_exception_handler(function ($e) {
+    if ($e instanceof UserError) {
+        json_out(['message' => $e->getMessage()], 400);
+    }
+    error_log($e->getMessage());   // full detail goes to the server log only
+    json_out(['message' => 'Something went wrong on the server. Please try again.'], 500);
+});
+function too_many_attempts(PDO $pdo, string $ip): bool {
+    $st = $pdo->prepare("SELECT COUNT(*) FROM login_attempts WHERE ip = ? AND attempted_at > NOW() - INTERVAL 15 MINUTE");
+    $st->execute([$ip]);
+    return (int)$st->fetchColumn() >= 10;   // 10 failures in 15 minutes
+}
+
+function record_failed_attempt(PDO $pdo, string $ip, string $username): void {
+    $pdo->prepare("INSERT INTO login_attempts (ip, username) VALUES (?, ?)")
+        ->execute([$ip, mb_substr($username, 0, 50)]);
+}
+
+function clear_attempts(PDO $pdo, string $ip): void {
+    $pdo->prepare("DELETE FROM login_attempts WHERE ip = ?")->execute([$ip]);
+}
+set_exception_handler(function ($e) {
+    if ($e instanceof UserError) {
+        json_out(['message' => $e->getMessage()], 400);
+    }
+    error_log($e->getMessage());
+    json_out(['message' => 'Server error: ' . $e->getMessage() . ' in ' . basename($e->getFile()) . ':' . $e->getLine()], 500);
+});
