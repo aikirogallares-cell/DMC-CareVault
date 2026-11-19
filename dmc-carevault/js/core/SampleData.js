@@ -8,7 +8,6 @@ class SampleData {
         // Runs on every page. Each part only fills the storage the first time.
     loadIfNeeded() {
         this.loadMainDataIfNeeded();
-        this.loadMedicationsIfNeeded();
         this.addSellingPricesIfNeeded();
     }
 

@@ -1,10 +1,9 @@
 /*
  * BillingPage.js
- * Purpose: bills, cash payment, receipts and sales statistics.
- * Bills are made automatically when a visit is completed, and the patient's prescriptions for that day
- * are added as medicine lines. The patient decides which medicines to buy here. The only payment
- * method is cash. After a successful payment a receipt is shown.
- * Admin sees the sales statistics and sets the service prices.
+ * Purpose: bills for completed visits (services only), payment, receipts and sales statistics.
+ * Payment is cash, GCash, Maya or bank transfer. Electronic payments need the reference number
+ * and the tick box after the payment is checked in the clinic's app.
+ * Medicines are not sold through billing. Admin sees the sales statistics and sets the service prices.
  */
 class BillingPage {
     constructor() {
@@ -38,7 +37,7 @@ class BillingPage {
     // ---------- Layout ----------
 
     showPage() {
-        // Creates bills for finished visits and adds prescriptions that are not on a bill yet.
+        // Creates bills for finished visits.
         try {
             billingService.syncBills();
         } catch (error) {
@@ -85,7 +84,7 @@ class BillingPage {
     }
 
     // The "Go to Billing" button of the notification opens billing.html?visit=A-0004.
-    // This opens the bill of that visit straight away, so staff do not have to look for it.
+    // This opens the bill of that visit straight away.
     openBillFromLink() {
         const visitId = new URLSearchParams(window.location.search).get("visit");
         if (visitId === null) {
@@ -208,7 +207,7 @@ class BillingPage {
         html += htmlHelper.buildStatCard(this.formatPeso(report.newPatientSales), "Earned from New Patients");
         html += htmlHelper.buildStatCard(this.formatPeso(report.returningPatientSales), "Earned from Returning Patients");
         html += htmlHelper.buildStatCard(this.formatPeso(report.serviceSales), "Services Sold");
-        html += htmlHelper.buildStatCard(this.formatPeso(report.medicineSales), "Medicines Sold");
+        html += htmlHelper.buildStatCard(this.formatPeso(report.medicineSales), "Medicine Sales (older bills)");
         html += htmlHelper.buildStatCard(this.formatPeso(report.discountTotal), "Senior / PWD Discounts Given");
         cardsElement.innerHTML = html;
 
@@ -253,6 +252,7 @@ class BillingPage {
             tableBuilder.buildTableHtml(columns, billList, "No bills found.");
     }
 
+    // Services are charged. Medicine lines only exist on bills from before medicines moved out of billing.
     buildItemsSummaryHtml(bill) {
         const parts = [];
         for (let i = 0; i < bill.items.length; i++) {
@@ -262,13 +262,13 @@ class BillingPage {
             } else if (item.decision === "Buy here") {
                 parts.push(item.name + " (bought here)");
             } else {
-                parts.push(item.name + " (not bought)");
+                parts.push(item.name + " (not charged)");
             }
         }
         return htmlHelper.escapeText(parts.join(", "));
     }
 
-    // ---------- Bill dialog (open bills: choose and pay in cash) ----------
+    // ---------- Bill dialog (open bills: choose the payment method and confirm) ----------
 
     // Open bills show the payment form. Paid bills show their receipt.
     openBillDialog(billId) {
@@ -285,6 +285,7 @@ class BillingPage {
         }
 
         const safe = htmlHelper.escapeText;
+        const subtotal = billingService.calculateTotal(bill.items);
 
         let html = '<dl class="kv">';
         html += "<dt>Bill ID</dt><dd>" + safe(bill.id) + "</dd>";
@@ -295,10 +296,10 @@ class BillingPage {
         html += "</dl>";
 
         html += '<div class="tw"><table><thead><tr>';
-        html += "<th>Item</th><th>Qty</th><th>Unit Price</th><th>Amount</th><th>Decision</th>";
+        html += "<th>Item</th><th>Qty</th><th>Unit Price</th><th>Amount</th>";
         html += "</tr></thead><tbody>";
         for (let i = 0; i < bill.items.length; i++) {
-            html += this.buildBillRowHtml(bill.items[i], true);
+            html += this.buildBillRowHtml(bill.items[i]);
         }
         html += "</tbody></table></div>";
 
@@ -310,12 +311,13 @@ class BillingPage {
         if (patient !== null && suggested === "PWD") { suggestedIdNumber = patient.pwdNumber || ""; }
 
         html += '<div class="bill-total">Subtotal: <b id="billSubtotalText" style="color:var(--tx)">' +
-            this.formatPeso(billingService.getBillTotal(bill)) + "</b></div>";
+            this.formatPeso(subtotal) + "</b></div>";
         html += '<div class="bill-total" style="margin-top:2px">Discount: <b id="billDiscountText" style="color:var(--tx)">' +
             this.formatPeso(0) + "</b></div>";
         html += '<div class="bill-total" style="margin-top:2px">Total to pay: <b id="billTotalText">' +
-            this.formatPeso(billingService.getBillTotal(bill)) + "</b></div>";
+            this.formatPeso(subtotal) + "</b></div>";
 
+        // Discount box
         html += '<div style="background:#f7fbf7;border:1px solid var(--bd);border-radius:10px;padding:14px 18px;margin-top:16px">';
         html += '<h4 style="color:var(--g);margin:0 0 10px">Senior Citizen / PWD discount</h4>';
         html += '<div style="max-width:450px"><label for="discountType">Discount</label>';
@@ -329,11 +331,31 @@ class BillingPage {
         html += '<p style="margin:8px 0 0;font-size:12px;color:var(--tx2)">Ask for a valid Senior Citizen or PWD ID before giving the discount.</p>';
         html += "</div></div>";
 
-        html += '<div class="cash-box">';
+        // Payment box
+        html += '<div style="background:#f7fbf7;border:1px solid var(--bd);border-radius:10px;padding:14px 18px;margin-top:16px">';
+        html += '<h4 style="color:var(--g);margin:0 0 10px">Payment</h4>';
+        html += '<div style="max-width:450px"><label for="paymentMethod">Payment method *</label>';
+        html += '<select id="paymentMethod"><option value="Cash">Cash</option><option value="GCash">GCash</option>';
+        html += '<option value="Maya">Maya</option><option value="Bank transfer">Bank transfer</option></select></div>';
+
+        // Cash only
+        html += '<div id="cashBox" style="max-width:450px;margin-top:12px">';
         html += '<label for="cashReceivedInput">Cash received (₱) *</label>';
         html += '<input id="cashReceivedInput" type="number" min="0" step="1" inputmode="numeric" placeholder="Enter the cash given">';
-        html += "</div>";
         html += '<div class="cash-change">Change: <b id="cashChangeText">-</b></div>';
+        html += "</div>";
+
+        // GCash, Maya and bank transfer only
+        html += '<div id="electronicBox" style="display:none;max-width:450px;margin-top:12px">';
+        html += '<label for="amountPaid">Amount paid (₱), must equal the total *</label>';
+        html += '<input id="amountPaid" type="number" min="0" step="1" inputmode="numeric">';
+        html += '<label for="paymentReference" style="margin-top:12px">Reference number from the patient\'s receipt *</label>';
+        html += '<input id="paymentReference" placeholder="e.g. GC1234567890" maxlength="30">';
+        html += '<label style="display:flex;gap:8px;align-items:center;margin-top:12px;font-size:14px;color:var(--tx)">';
+        html += '<input type="checkbox" id="paymentVerified" style="width:auto"> I checked this payment in the clinic\'s app</label>';
+        html += '<p style="margin:8px 0 0;font-size:12px;color:var(--tx2)">Open the clinic\'s own GCash, Maya or bank app and find the payment before ticking the box.</p>';
+        html += "</div>";
+        html += "</div>";
 
         const title = "Bill " + bill.id + " - " + patientService.getPatientNameById(bill.patientId);
         const dialog = new ModalDialog(title, html, {
@@ -348,82 +370,48 @@ class BillingPage {
         const dialogElement = dialog.getElement();
         dialogElement.querySelector("#discountType").value = suggested;
         dialogElement.addEventListener("change", function () {
-            page.updateDialogTotal(dialogElement);
+            page.updateDialogTotal(dialogElement, subtotal);
         });
         dialogElement.addEventListener("input", function () {
-            page.updateDialogTotal(dialogElement);
+            page.updateDialogTotal(dialogElement, subtotal);
         });
-        this.updateDialogTotal(dialogElement);
+        this.updateDialogTotal(dialogElement, subtotal);
     }
 
-    buildBillRowHtml(item, isOpen) {
+    // One row per item. Charged items show the full amount. Medicine lines (old bills) are marked as not charged.
+    buildBillRowHtml(item) {
         const safe = htmlHelper.escapeText;
-        let decisionHtml = "";
+        const note = item.type === "medicine" ? "<br><small>Not charged here</small>" : "";
 
-        if (item.type === "service") {
-            decisionHtml = "Included";
-        } else if (isOpen && item.sellable) {
-            decisionHtml = '<select data-decision-id="' + safe(item.id) + '">';
-            decisionHtml += '<option value="Buy here"' + (item.decision === "Buy here" ? " selected" : "") + ">Buy here</option>";
-            decisionHtml += '<option value="Not buying"' + (item.decision !== "Buy here" ? " selected" : "") + ">Not buying</option>";
-            decisionHtml += "</select>";
-        } else {
-            decisionHtml = safe(item.decision);
-            if (isOpen && item.note) {
-                decisionHtml += " <small>(" + safe(item.note) + ")</small>";
-            }
-        }
-
-        let nameHtml = safe(item.name);
-        if (isOpen && item.note) {
-            nameHtml += "<br><small>" + safe(item.note) + "</small>";
-        }
-
-        return '<tr data-item="' + safe(item.id) + '" data-type="' + item.type + '" data-amount="' + (Number(item.amount) || 0) + '">' +
-            "<td>" + nameHtml + "</td>" +
+        return "<tr><td>" + safe(item.name) + note + "</td>" +
             "<td>" + item.quantity + "</td>" +
             "<td>" + this.formatPeso(item.unitPrice) + "</td>" +
-            "<td>" + this.formatPeso(item.amount) + "</td>" +
-            "<td>" + decisionHtml + "</td></tr>";
+            "<td>" + this.formatPeso(item.amount) + "</td></tr>";
     }
 
-    // Reads the Buy here / Not buying choices from the open dialog.
-    readDecisions(dialogElement) {
-        const decisions = {};
-        const selects = dialogElement.querySelectorAll("select[data-decision-id]");
-        for (let i = 0; i < selects.length; i++) {
-            decisions[selects[i].getAttribute("data-decision-id")] = selects[i].value;
-        }
-        return decisions;
-    }
-
-    // Keeps the total and the change on screen in step with the choices and the cash.
-    updateDialogTotal(dialogElement) {
-        const rows = dialogElement.querySelectorAll("tr[data-item]");
-        let total = 0;
-        for (let i = 0; i < rows.length; i++) {
-            const row = rows[i];
-            const decisionBox = row.querySelector("select[data-decision-id]");
-            const isService = row.getAttribute("data-type") === "service";
-            const isBoughtHere = decisionBox !== null && decisionBox.value === "Buy here";
-            if (isService || isBoughtHere) {
-                total = total + Number(row.getAttribute("data-amount"));
-            }
-        }
-        // Senior Citizen / PWD discount comes off the subtotal.
+    // Keeps the discount, total, change and payment boxes in step with what the staff member chose.
+    // subtotal: the sum of the services on the bill.
+    updateDialogTotal(dialogElement, subtotal) {
         const discountType = dialogElement.querySelector("#discountType").value;
-        const subtotal = total;
         const discount = billingService.calculateDiscount(subtotal, discountType);
-        total = subtotal - discount;
+        const total = subtotal - discount;
 
         dialogElement.querySelector("#billSubtotalText").textContent = this.formatPeso(subtotal);
-        if (discount > 0) {
-            dialogElement.querySelector("#billDiscountText").textContent = "-" + this.formatPeso(discount);
-        } else {
-            dialogElement.querySelector("#billDiscountText").textContent = this.formatPeso(0);
-        }
+        dialogElement.querySelector("#billDiscountText").textContent = discount > 0
+            ? "-" + this.formatPeso(discount)
+            : this.formatPeso(0);
         dialogElement.querySelector("#billTotalText").textContent = this.formatPeso(total);
         dialogElement.querySelector("#discountDetails").style.display = discountType === "None" ? "none" : "block";
+
+        // Remembered so the amount box can be filled in for electronic payments.
+        dialogElement.setAttribute("data-total", String(total));
+
+        this.togglePaymentFields(dialogElement);
+
+        const method = dialogElement.querySelector("#paymentMethod").value;
+        if (method !== "Cash") {
+            return;
+        }
 
         const cashText = dialogElement.querySelector("#cashReceivedInput").value.trim();
         const changeElement = dialogElement.querySelector("#cashChangeText");
@@ -431,30 +419,65 @@ class BillingPage {
             changeElement.textContent = "-";
             return;
         }
-
         const change = Number(cashText) - total;
-        if (change < 0) {
-            changeElement.textContent = "Short by " + this.formatPeso(-change);
-        } else {
-            changeElement.textContent = this.formatPeso(change);
+        changeElement.textContent = change < 0
+            ? "Short by " + this.formatPeso(-change)
+            : this.formatPeso(change);
+    }
+
+    // Shows the cash box for Cash, and the reference box for GCash, Maya and bank transfer.
+    togglePaymentFields(dialogElement) {
+        const method = dialogElement.querySelector("#paymentMethod").value;
+        const isCash = method === "Cash";
+
+        dialogElement.querySelector("#cashBox").style.display = isCash ? "block" : "none";
+        dialogElement.querySelector("#electronicBox").style.display = isCash ? "none" : "block";
+
+        // Fills in the total the first time an electronic method is chosen. Staff can still change it.
+        const amountBox = dialogElement.querySelector("#amountPaid");
+        if (!isCash && amountBox.value === "") {
+            amountBox.value = dialogElement.getAttribute("data-total") || "";
         }
     }
 
-    // Saves the choices, takes the cash payment, then shows the receipt.
-    // If the cash is short or stock is not enough, the error shows in the dialog and the bill stays open.
-    confirmPayment(billId, openDialog) {
-        const dialogElement = openDialog.getElement();
-        billingService.saveDecisions(billId, this.readDecisions(dialogElement));
-
-        const cashText = dialogElement.querySelector("#cashReceivedInput").value.trim();
-        const discount = {
+    readDiscount(dialogElement) {
+        return {
             type: dialogElement.querySelector("#discountType").value,
             idNumber: dialogElement.querySelector("#discountIdNumber").value.trim(),
             idChecked: dialogElement.querySelector("#discountIdChecked").checked
         };
-        const paidBill = billingService.markPaid(billId, cashText, discount);
+    }
 
-        notifier.showSuccess("Payment recorded. Medicine stock updated.");
+    // Returns the object that billingService.markPaid expects.
+    readPayment(dialogElement) {
+        const method = dialogElement.querySelector("#paymentMethod").value;
+
+        if (method === "Cash") {
+            return {
+                method: "Cash",
+                cashReceived: dialogElement.querySelector("#cashReceivedInput").value.trim()
+            };
+        }
+        return {
+            method: method,
+            reference: dialogElement.querySelector("#paymentReference").value.trim(),
+            amountPaid: dialogElement.querySelector("#amountPaid").value.trim(),
+            verified: dialogElement.querySelector("#paymentVerified").checked
+        };
+    }
+
+    // Takes the payment, then shows the receipt.
+    // If the payment is refused (short cash, duplicate reference, missing tick box), the error
+    // shows in the dialog and the bill stays open.
+    confirmPayment(billId, openDialog) {
+        const dialogElement = openDialog.getElement();
+        const paidBill = billingService.markPaid(
+            billId,
+            this.readPayment(dialogElement),
+            this.readDiscount(dialogElement)
+        );
+
+        notifier.showSuccess("Payment recorded.");
         this.refreshStats();
         this.refreshBills();
         this.showReceipt(paidBill, true);
@@ -487,11 +510,13 @@ class BillingPage {
         }
     }
 
-    // The receipt lists only what was charged: the service and the medicines bought here.
+    // The receipt lists only what was charged: the services, and any old medicine lines bought here.
     buildReceiptHtml(bill) {
         const safe = htmlHelper.escapeText;
         const settings = settingsService.getSettings();
         const paidWhen = bill.paidAt ? dateHelper.formatDateTime(bill.paidAt) : bill.paidDate;
+        const method = bill.paymentMethod || "Cash";
+        const isCash = method === "Cash";
 
         let html = '<div class="receipt">';
         html += '<div class="receipt-center"><b>' + safe(settings.clinicName) + "</b><br>" +
@@ -504,13 +529,13 @@ class BillingPage {
         html += '<div class="receipt-line"><span>Cashier</span><span>' + safe(userService.getFullNameByUsername(bill.paidBy)) + "</span></div>";
         html += '<hr class="receipt-rule">';
 
-        const notBought = [];
+        const notCharged = [];
         for (let i = 0; i < bill.items.length; i++) {
             const item = bill.items[i];
             const isCharged = item.type === "service" || item.decision === "Buy here";
 
             if (!isCharged) {
-                notBought.push(item.name);
+                notCharged.push(item.name);
                 continue;
             }
 
@@ -530,12 +555,17 @@ class BillingPage {
             html += "<small>ID No.: " + safe(bill.discountIdNumber) + "</small>";
         }
         html += '<div class="receipt-line receipt-total"><span>Total</span><span>' + this.formatPeso(bill.total) + "</span></div>";
-        html += '<div class="receipt-line"><span>Payment method</span><span>' + safe(bill.paymentMethod || "Cash") + "</span></div>";
-        html += '<div class="receipt-line"><span>Cash received</span><span>' + this.formatMoneyOrDash(bill.cashReceived) + "</span></div>";
-        html += '<div class="receipt-line"><span>Change</span><span>' + this.formatMoneyOrDash(bill.change) + "</span></div>";
+        html += '<div class="receipt-line"><span>Payment method</span><span>' + safe(method) + "</span></div>";
 
-        if (notBought.length > 0) {
-            html += '<hr class="receipt-rule"><small>Not bought here: ' + safe(notBought.join(", ")) + "</small>";
+        if (isCash) {
+            html += '<div class="receipt-line"><span>Cash received</span><span>' + this.formatMoneyOrDash(bill.cashReceived) + "</span></div>";
+            html += '<div class="receipt-line"><span>Change</span><span>' + this.formatMoneyOrDash(bill.change) + "</span></div>";
+        } else {
+            html += '<div class="receipt-line"><span>Reference No.</span><span>' + safe(bill.paymentReference || "-") + "</span></div>";
+        }
+
+        if (notCharged.length > 0) {
+            html += '<hr class="receipt-rule"><small>Not charged here: ' + safe(notCharged.join(", ")) + "</small>";
         }
 
         html += '<hr class="receipt-rule"><div class="receipt-center"><small>Thank you.</small></div>';

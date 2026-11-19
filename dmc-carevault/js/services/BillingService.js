@@ -1,16 +1,8 @@
 /*
  * BillingService.js
- * Purpose: bills for patient visits, payment, medicine stock sold at the clinic, and sales statistics.
- *
- * How bills are made (automatically):
- *   - A visit marked "Completed" gets a bill with its service (the reason, e.g. "X-ray"),
- *     priced from the service price list.
- *   - Prescriptions written for that patient on the same day are added as medicine lines.
- *   - The patient decides for each medicine: "Buy here" or "Not buying".
- *   - Paying the bill takes the bought medicines out of stock.
- *
- * Money is in whole pesos. Only medicines that have a selling price, are not expired,
- * and are in stock can be bought here.
+ * Purpose: bills for completed visits (services only), cash payment, discounts, and sales statistics.
+ * Medicines are not sold through billing. The clinic keeps its medicine inventory in Medications,
+ * and medicines are prescribed in Prescriptions. Older paid bills keep their medicine lines for history.
  */
 class BillingService {
     constructor() {
@@ -84,16 +76,10 @@ class BillingService {
 
         const bills = storageService.loadList("bills");
         const appointments = storageService.loadList("appointments");
-        const prescriptions = storageService.loadList("prescriptions");
-        const medications = storageService.loadList("medications");
 
         const billedVisitIds = {};
-        const billedPrescriptionIds = {};
         for (let i = 0; i < bills.length; i++) {
             billedVisitIds[bills[i].queueEntryId] = true;
-            for (let j = 0; j < bills[i].prescriptionIds.length; j++) {
-                billedPrescriptionIds[bills[i].prescriptionIds[j]] = true;
-            }
         }
 
         const textBefore = JSON.stringify(bills);
@@ -107,17 +93,13 @@ class BillingService {
             }
         }
 
-        // 2. Open bills get the prescriptions for that day, and medicine prices are kept up to date.
+        // 2. Open bills only carry services. Medicine lines from before this change are removed.
         for (let i = 0; i < bills.length; i++) {
-            const bill = bills[i];
-            if (bill.status !== "Open") {
-                continue;
-            }
-            this.addUnbilledPrescriptions(bill, prescriptions, billedPrescriptionIds, medications);
-            for (let j = 0; j < bill.items.length; j++) {
-                if (bill.items[j].type === "medicine") {
-                    this.refreshMedicineItem(bill.items[j], medications);
-                }
+            if (bills[i].status === "Open") {
+                bills[i].items = bills[i].items.filter(function (item) {
+                    return item.type !== "medicine";
+                });
+                bills[i].prescriptionIds = [];
             }
         }
 
@@ -161,103 +143,13 @@ class BillingService {
         };
     }
 
-    // Adds the medicines of prescriptions written for this patient on the visit date (once only).
-    addUnbilledPrescriptions(bill, prescriptions, billedPrescriptionIds, medications) {
-        for (let i = 0; i < prescriptions.length; i++) {
-            const prescription = prescriptions[i];
-            const isForThisVisit = prescription.patientId === bill.patientId && prescription.date === bill.visitDate;
-            if (!isForThisVisit || billedPrescriptionIds[prescription.id] === true) {
-                continue;
-            }
-
-            billedPrescriptionIds[prescription.id] = true;
-            bill.prescriptionIds.push(prescription.id);
-
-            for (let j = 0; j < prescription.medicines.length; j++) {
-                const medicine = prescription.medicines[j];
-                const item = {
-                    id: prescription.id + "-" + (j + 1),
-                    type: "medicine",
-                    name: medicine.name,
-                    prescriptionId: prescription.id,
-                    medicationId: null,
-                    quantity: Number(medicine.quantity) || 1,
-                    unitPrice: 0,
-                    amount: 0,
-                    sellable: false,
-                    note: ""
-                };
-                this.refreshMedicineItem(item, medications);
-                bill.items.push(item);
-            }
-        }
-    }
-
-    // Works out the price and whether the medicine can be bought here right now.
-    refreshMedicineItem(item, medications) {
-        const resolved = this.resolveMedicine(item.name, item.quantity, medications);
-        item.medicationId = resolved.medicationId;
-        item.unitPrice = resolved.unitPrice;
-        item.amount = resolved.unitPrice * item.quantity;
-        item.sellable = resolved.sellable;
-        item.note = resolved.note;
-
-        if (item.decision === undefined) {
-            item.decision = "Buy here";
-        }
-        if (!resolved.sellable) {
-            item.decision = "Not buying";
-        }
-    }
-
-    // Matches the typed medicine name against the medicine list.
-    resolveMedicine(typedName, quantity, medications) {
-        const typed = String(typedName || "").trim().toLowerCase();
-        const today = dateHelper.getTodayString();
-        let match = null;
-
-        for (let i = 0; i < medications.length; i++) {
-            const medication = medications[i];
-            if (medication.isArchived) {
-                continue;
-            }
-            const namesForThisMedicine = [
-                medicationService.getMedicationName(medication).toLowerCase(),
-                medicationService.getMedicationLabel(medication).toLowerCase(),
-                String(medication.genericName).toLowerCase()
-            ];
-            if (namesForThisMedicine.includes(typed)) {
-                match = medication;
-                break;
-            }
-        }
-
-        if (match === null) {
-            return { medicationId: null, unitPrice: 0, sellable: false, note: "Not in the clinic medicine list" };
-        }
-
-        const unitPrice = Number(match.unitPrice) || 0;
-        const result = { medicationId: match.id, unitPrice: unitPrice };
-
-        if (match.expiryDate < today) {
-            return Object.assign(result, { sellable: false, note: "Expired" });
-        }
-        if (unitPrice <= 0) {
-            return Object.assign(result, { sellable: false, note: "No selling price set" });
-        }
-        if (Number(match.stock) < quantity) {
-            return Object.assign(result, { sellable: false, note: "Only " + match.stock + " " + match.unit + " in stock" });
-        }
-        return Object.assign(result, { sellable: true, note: "" });
-    }
-
     // ----- Totals -----
 
-    // Services are always included. Medicines count only when the patient buys them here.
+    // Only services are charged. Medicines are not part of the bill.
     calculateTotal(items) {
         let total = 0;
         for (let i = 0; i < items.length; i++) {
-            if (items[i].type === "service" || items[i].decision === "Buy here") {
+            if (items[i].type === "service") {
                 total = total + (Number(items[i].amount) || 0);
             }
         }
@@ -362,49 +254,9 @@ class BillingService {
         return null;
     }
 
-    findMedicationById(medications, medicationId) {
-        for (let i = 0; i < medications.length; i++) {
-            if (medications[i].id === medicationId) {
-                return medications[i];
-            }
-        }
-        return null;
-    }
+    // ----- Payment (cash only) -----
 
-    // ----- Payment -----
-
-    // decisions: { itemId: "Buy here" or "Not buying" }
-    saveDecisions(billId, decisions) {
-        permissionService.requirePermission("billing.collect");
-
-        const bills = storageService.loadList("bills");
-        const bill = this.findBillInList(bills, billId);
-        if (bill === null) {
-            throw new Error("Bill not found.");
-        }
-        if (bill.status !== "Open") {
-            throw new Error("This bill is already paid.");
-        }
-
-        for (let i = 0; i < bill.items.length; i++) {
-            const item = bill.items[i];
-            if (item.type !== "medicine" || decisions[item.id] === undefined) {
-                continue;
-            }
-            if (decisions[item.id] === "Buy here" && !item.sellable) {
-                throw new Error(item.name + " cannot be bought here: " + item.note + ".");
-            }
-            item.decision = decisions[item.id];
-        }
-
-        storageService.saveList("bills", bills);
-        auditLogService.recordAction("Bill choices saved", bill.id);
-    }
-
-    // Takes the bought medicines out of stock and marks the bill as paid.
-        // Cash only. Takes the bought medicines out of stock and marks the bill as paid.
-    // cashReceived is what the patient handed over. It must cover the total.
-    // Returns the paid bill so the receipt can be shown.
+    // Takes the cash, applies the discount, and marks the bill as paid. No stock is changed.
     markPaid(billId, cashReceived, discount) {
         permissionService.requirePermission("billing.collect");
 
@@ -417,30 +269,6 @@ class BillingService {
             throw new Error("This bill is already paid.");
         }
 
-        const medications = storageService.loadList("medications");
-        const quantityNeeded = {};
-
-        // Check every medicine the patient is buying here.
-        for (let i = 0; i < bill.items.length; i++) {
-            const item = bill.items[i];
-            if (item.type !== "medicine" || item.decision !== "Buy here") {
-                continue;
-            }
-
-            const resolved = this.resolveMedicine(item.name, item.quantity, medications);
-            if (!resolved.sellable) {
-                throw new Error(item.name + " cannot be bought here: " + resolved.note + ".");
-            }
-
-            item.medicationId = resolved.medicationId;
-            item.unitPrice = resolved.unitPrice;
-            item.amount = resolved.unitPrice * item.quantity;
-            item.sellable = true;
-            item.note = "";
-
-            quantityNeeded[resolved.medicationId] = (quantityNeeded[resolved.medicationId] || 0) + item.quantity;
-        }
-
         // Senior Citizen / PWD discount: checked against the patient's record, then taken off the subtotal.
         const discountChoice = discount || { type: "None", idNumber: "", idChecked: false };
         this.checkDiscount(patientService.getPatientById(bill.patientId), discountChoice);
@@ -449,7 +277,6 @@ class BillingService {
         const discountAmount = this.calculateDiscount(subtotal, discountChoice.type);
         const total = subtotal - discountAmount;
 
-        // Cash check: the cash must cover the total before anything is changed.
         const cashError = validator.checkWholeNumber("Cash received", cashReceived);
         if (cashError !== "") {
             throw new Error(cashError);
@@ -458,23 +285,6 @@ class BillingService {
         if (cash < total) {
             throw new Error("Cash received (₱" + cash + ") is less than the total (₱" + total + ").");
         }
-
-        // The same medicine can be on two lines, so check the total needed for each one.
-        const medicationIds = Object.keys(quantityNeeded);
-        for (let i = 0; i < medicationIds.length; i++) {
-            const medication = this.findMedicationById(medications, medicationIds[i]);
-            if (medication.stock < quantityNeeded[medicationIds[i]]) {
-                throw new Error("Not enough stock for " + medicationService.getMedicationLabel(medication) +
-                    ". Available: " + medication.stock + " " + medication.unit + ".");
-            }
-        }
-
-        // Everything is valid: take the stock out, then mark the bill as paid.
-        for (let i = 0; i < medicationIds.length; i++) {
-            const medication = this.findMedicationById(medications, medicationIds[i]);
-            medication.stock = medication.stock - quantityNeeded[medicationIds[i]];
-        }
-        storageService.saveList("medications", medications);
 
         bill.subtotal = subtotal;
         bill.discountType = discountChoice.type;
@@ -498,6 +308,7 @@ class BillingService {
     // ----- Statistics -----
 
     // startDate and endDate are YYYY-MM-DD texts. Sales count on the day the bill was paid.
+    // Medicine sales from older paid bills still appear, so past reports stay accurate.
     getSalesReport(startDate, endDate) {
         permissionService.requirePermission("billing.reports");
 

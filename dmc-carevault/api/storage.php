@@ -1,7 +1,8 @@
 <?php
 /*
- * storage.php - reads and saves the lists that now live in MySQL:
- *   users, patients, consultations, prescriptions, medications, bills, appointments (queue), auditLogs
+ * storage.php - reads and saves the lists that live in MySQL:
+ *   users, patients, consultations, prescriptions, bills, appointments (queue), testResults,
+ *   doctorAvailability, doctorProfiles, archivedPrescriptions, auditLogs
  *
  * GET  storage.php?name=patients            -> { list: [...] } in the shape the JavaScript expects
  * POST storage.php?name=patients            -> body { items: [...changed items], newIds: [...] }
@@ -14,20 +15,33 @@ $name   = $_GET['name'] ?? '';
 $method = $_SERVER['REQUEST_METHOD'];
 
 $readers = [
-    'users' => 'read_users', 'patients' => 'read_patients', 'consultations' => 'read_consultations',
-    'prescriptions' => 'read_prescriptions', 'medications' => 'read_medications', 'bills' => 'read_bills',
-    'appointments' => 'read_appointments', 'auditLogs' => 'read_audit_logs',
-    'testResults' => 'read_test_results',  'doctorAvailability' => 'read_doctor_availability',
-    'doctorProfiles' => 'read_doctor_profiles', 'archivedPrescriptions' => 'read_archived_prescriptions',
+    'users'                => 'read_users',
+    'patients'             => 'read_patients',
+    'consultations'        => 'read_consultations',
+    'prescriptions'        => 'read_prescriptions',
+    'bills'                => 'read_bills',
+    'appointments'         => 'read_appointments',
+    'auditLogs'            => 'read_audit_logs',
+    'testResults'          => 'read_test_results',
+    'doctorAvailability'   => 'read_doctor_availability',
+    'doctorProfiles'       => 'read_doctor_profiles',
+    'archivedPrescriptions'=> 'read_archived_prescriptions',
 ];
+
 // Who may WRITE each list (the server repeats the permission checks of the JavaScript).
 $writers = [
-    'users' => ['Admin'], 'patients' => ['Admin', 'Staff', 'Doctor'], 'consultations' => ['Doctor'],
-    'prescriptions' => ['Doctor'], 'medications' => ['Admin', 'Staff'], 'bills' => ['Admin', 'Staff'],
-    'testResults' => ['Admin', 'Staff'],
-    'appointments' => ['Admin', 'Staff', 'Doctor'], 'doctorAvailability' => ['Doctor'],
-    'doctorProfiles' => ['Doctor'], 'archivedPrescriptions' => ['Admin', 'Staff'],
+    'users'                => ['Admin'],
+    'patients'             => ['Admin', 'Staff', 'Doctor'],
+    'consultations'        => ['Doctor'],
+    'prescriptions'        => ['Doctor'],
+    'bills'                => ['Admin', 'Staff'],
+    'testResults'          => ['Admin', 'Staff'],
+    'appointments'         => ['Admin', 'Staff', 'Doctor'],
+    'doctorAvailability'   => ['Doctor'],
+    'doctorProfiles'       => ['Doctor'],
+    'archivedPrescriptions'=> ['Admin', 'Staff'],
 ];
+
 $noPermission = ['message' => 'You do not have permission to perform this action.'];
 
 if (!isset($readers[$name])) {
@@ -192,7 +206,8 @@ function save_users(PDO $pdo, array $u, bool $isNew, array $me): void {
     if (!in_array($role, ['Admin', 'Staff', 'Doctor'], true)) {
         throw new UserError('Invalid role selected.');
     }
-    if (sv($u, 'id') === $me['id'] && !$active) {
+    // Compared as text, so the check works whatever type the session stores the ID as.
+    if (sv($u, 'id') === (string)$me['id'] && !$active) {
         throw new UserError('You cannot deactivate your own account.');
     }
     $row = ['id' => need(sv($u, 'id'), 'User ID'), 'full_name' => need(sv($u, 'fullName'), 'Full name'),
@@ -246,6 +261,7 @@ function read_patients(array $user): array {
             'bloodType' => $r['blood_type'] ?? '', 'allergies' => $r['allergies'] ?? '',
             'dateRegistered' => $r['date_registered'], 'lastVisit' => $r['last_visit'] ?? '',
             'isArchived' => (bool)$r['is_archived'],
+            'email' => $r['email'] ?? '',
             // Current names.
             'isPwd' => $isPwd, 'pwdId' => $r['pwd_id'] ?? '', 'seniorId' => $r['senior_id'] ?? '',
             // Older browser files use these names, so they are sent too.
@@ -280,13 +296,13 @@ function save_patients(PDO $pdo, array $p, bool $isNew, array $user): void {
     }
 
     // PWD and Senior ID. The browser may send them under either name.
-    $pwdSent = array_key_exists('isPwd', $p) || array_key_exists('pwd', $p);
+    $pwdSent    = array_key_exists('isPwd', $p) || array_key_exists('pwd', $p);
     $seniorSent = array_key_exists('seniorId', $p) || array_key_exists('seniorNumber', $p);
     $archivedSent = array_key_exists('isArchived', $p);
 
-    $pwdValue = array_key_exists('isPwd', $p) ? $p['isPwd'] : ($p['pwd'] ?? false);
-    $isPwd = is_yes($pwdValue);
-    $pwdIdText = array_key_exists('pwdId', $p) ? sv($p, 'pwdId') : sv($p, 'pwdNumber');
+    $pwdValue     = array_key_exists('isPwd', $p) ? $p['isPwd'] : ($p['pwd'] ?? false);
+    $isPwd        = is_yes($pwdValue);
+    $pwdIdText    = array_key_exists('pwdId', $p) ? sv($p, 'pwdId') : sv($p, 'pwdNumber');
     $seniorIdText = array_key_exists('seniorId', $p) ? sv($p, 'seniorId') : sv($p, 'seniorNumber');
 
     $row = [
@@ -313,14 +329,21 @@ function save_patients(PDO $pdo, array $p, bool $isNew, array $user): void {
         'pwd_id' => ($isPwd && $pwdIdText !== '') ? $pwdIdText : null,
         'senior_id' => nz($seniorIdText),
     ];
+
+    // Email is optional. It is only changed when the browser sends it.
+    if (array_key_exists('email', $p)) {
+        $row['email'] = nz(strtolower(sv($p, 'email')));
+    }
+
     check_len($row, ['id' => 10, 'first_name' => 60, 'middle_name' => 60, 'last_name' => 60, 'civil_status' => 20,
         'contact_number' => 11, 'lot_no' => 20, 'barangay' => 60, 'city' => 60, 'address' => 255,
         'emergency_name' => 100, 'emergency_relationship' => 50, 'emergency_contact_number' => 11,
-        'blood_type' => 5, 'pwd_id' => 30, 'senior_id' => 30]);
+        'blood_type' => 5, 'pwd_id' => 30, 'senior_id' => 30, 'email' => 100]);
 
     if ($isNew) {
         $row['date_registered'] = check_date(sv($p, 'dateRegistered'), 'Date registered', true);
     }
+
     // Medical fields: Admin can write them. Staff cannot (new patients get "None", old values stay).
     if ($user['role'] === 'Admin') {
         $row['medical_conditions'] = nz(sv($p, 'medicalConditions'));
@@ -366,6 +389,8 @@ function read_consultations(array $user): array {
     return $list;
 }
 
+// A consultation can be created, and an In Progress one can be finished by the doctor who owns it.
+// Once it is Completed it is a record and cannot be changed.
 function save_consultations(PDO $pdo, array $c, bool $isNew, array $user): void {
     $id = need(sv($c, 'id'), 'Consultation ID');
     $status = sv($c, 'status');
@@ -374,14 +399,17 @@ function save_consultations(PDO $pdo, array $c, bool $isNew, array $user): void 
     }
 
     if (!$isNew) {
-        $st = $pdo->prepare('SELECT doctor_username FROM consultations WHERE id = ?');
+        $st = $pdo->prepare('SELECT doctor_username, status FROM consultations WHERE id = ?');
         $st->execute([$id]);
-        $owner = $st->fetchColumn();
-        if ($owner === false) {
+        $saved = $st->fetch();
+        if ($saved === false) {
             throw new UserError('Consultation not found.');
         }
-        if ($owner !== $user['username']) {
-            throw new UserError('You can only edit your own consultations.');
+        if ($saved['status'] === 'Completed') {
+            throw new UserError('A completed consultation cannot be changed. It is a record.');
+        }
+        if ($saved['doctor_username'] !== $user['username']) {
+            throw new UserError('You can only finish your own consultations.');
         }
     }
 
@@ -404,6 +432,7 @@ function save_consultations(PDO $pdo, array $c, bool $isNew, array $user): void 
         'follow_up_date' => check_date(sv($c, 'followUpDate'), 'Follow-up date', false),
     ];
     check_len($row, ['id' => 10, 'blood_pressure' => 10, 'chief_complaint' => 255, 'diagnosis' => 2000]);
+
     if ($isNew) {
         $row['doctor_username'] = $user['username'];
     }
@@ -441,8 +470,15 @@ function save_prescriptions(PDO $pdo, array $rx, bool $isNew, array $user): void
         throw new UserError('Add at least one medicine.');
     }
 
+    $prescribedDate = check_date(sv($rx, 'date'), 'Date', true);
+
+    // A new prescription cannot be dated in the past. Old paper records go through Archive Restoration.
+    if ($isNew && $prescribedDate < date('Y-m-d')) {
+        throw new UserError('A prescription cannot be dated in the past. Choose today or a later date.');
+    }
+
     $row = ['id' => $id, 'patient_id' => need(sv($rx, 'patientId'), 'Patient'),
-        'prescribed_date' => check_date(sv($rx, 'date'), 'Date', true)];
+        'prescribed_date' => $prescribedDate];
     if ($isNew) {
         $row['doctor_username'] = $user['username'];
     }
@@ -458,54 +494,6 @@ function save_prescriptions(PDO $pdo, array $rx, bool $isNew, array $user): void
         $insert->execute([$id, $item['medicine_name'], nz($item['dosage']), nz($item['frequency']), nz($item['duration']),
             (int)($m['quantity'] ?? 0), nz($item['instructions'])]);
     }
-}
-
-/* ================= medications ================= */
-
-function read_medications(array $user): array {
-    $rows = db()->query('SELECT * FROM medications ORDER BY id')->fetchAll();
-    $text = function ($v) { return $v === null ? '' : (string)$v; };
-    $list = [];
-
-    foreach ($rows as $r) {
-        $list[] = [
-            'id' => $r['id'], 'genericName' => $r['generic_name'], 'brandName' => $text($r['brand_name']),
-            'strength' => $text($r['strength']), 'form' => $text($r['form']), 'category' => $text($r['category']),
-            'route' => $text($r['route']), 'stock' => (int)$r['stock'], 'unit' => $text($r['unit']),
-            'reorderLevel' => (int)$r['reorder_level'], 'unitPrice' => (int)$r['unit_price'],
-            'batchNumber' => $text($r['batch_number']), 'expiryDate' => $text($r['expiry_date']),
-            'supplier' => $text($r['supplier']), 'indications' => $text($r['indications']),
-            'warnings' => $text($r['warnings']), 'storageInstructions' => $text($r['storage_instructions']),
-            'isArchived' => (bool)$r['is_archived'],
-        ];
-    }
-    return $list;
-}
-
-function save_medications(PDO $pdo, array $m, bool $isNew, array $user): void {
-    $row = [
-        'id' => need(sv($m, 'id'), 'Medicine ID'),
-        'generic_name' => need(sv($m, 'genericName'), 'Generic name'),
-        'brand_name' => nz(sv($m, 'brandName')),
-        'strength' => nz(sv($m, 'strength')),
-        'form' => nz(sv($m, 'form')),
-        'category' => nz(sv($m, 'category')),
-        'route' => nz(sv($m, 'route')),
-        'stock' => max(0, (int)($m['stock'] ?? 0)),
-        'unit' => nz(sv($m, 'unit')),
-        'reorder_level' => max(0, (int)($m['reorderLevel'] ?? 0)),
-        'unit_price' => max(0, (int)($m['unitPrice'] ?? 0)),
-        'batch_number' => nz(sv($m, 'batchNumber')),
-        'expiry_date' => check_date(sv($m, 'expiryDate'), 'Expiry date', false),
-        'supplier' => nz(sv($m, 'supplier')),
-        'indications' => nz(sv($m, 'indications')),
-        'warnings' => nz(sv($m, 'warnings')),
-        'storage_instructions' => nz(sv($m, 'storageInstructions')),
-        'is_archived' => !empty($m['isArchived']) ? 1 : 0,
-    ];
-    check_len($row, ['id' => 10, 'generic_name' => 100, 'brand_name' => 100, 'strength' => 50, 'form' => 30,
-        'category' => 60, 'route' => 30, 'unit' => 20, 'batch_number' => 50, 'supplier' => 100, 'storage_instructions' => 255]);
-    upsert($pdo, 'medications', $row, $isNew);
 }
 
 /* ================= queue (appointments) and vital signs ================= */
@@ -588,7 +576,7 @@ function save_appointments(PDO $pdo, array $a, bool $isNew, array $user): void {
     }
 
     $priority = sv($a, 'priority');
-   if (!in_array($priority, ['Regular', 'Senior Citizen', 'PWD', 'Emergency', 'Scheduled'], true)) {
+    if (!in_array($priority, ['Regular', 'Senior Citizen', 'PWD', 'Emergency', 'Scheduled'], true)) {
         $priority = 'Regular';
     }
 
@@ -683,6 +671,7 @@ function read_bills(array $user): array {
             'subtotal' => (int)$r['subtotal'], 'discountType' => $r['discount_type'],
             'discountIdNumber' => $text($r['discount_id_number']), 'discountAmount' => (int)$r['discount_amount'],
             'total' => (int)$r['total'], 'paymentMethod' => $text($r['payment_method']),
+            'paymentReference' => $text($r['payment_reference']),
             'cashReceived' => $r['cash_received'] === null ? null : (int)$r['cash_received'],
             'change' => $r['change_amount'] === null ? null : (int)$r['change_amount'],
             'paidDate' => $text($r['paid_date']),
@@ -735,6 +724,33 @@ function save_bills(PDO $pdo, array $b, bool $isNew, array $user): void {
         ];
     }
 
+    // Payment. The cash-only page sends no method, so a paid bill without one is cash.
+    // Open bills have no payment, so their method stays empty.
+    $paymentMethod = sv($b, 'paymentMethod');
+    $paymentRef = null;
+    if ($status === 'Paid') {
+        if ($paymentMethod === '') {
+            $paymentMethod = 'Cash';
+        }
+        if (!in_array($paymentMethod, ['Cash', 'GCash', 'Maya', 'Bank transfer'], true)) {
+            throw new UserError('Choose a valid payment method.');
+        }
+        if ($paymentMethod !== 'Cash') {
+            $ref = strtoupper(sv($b, 'paymentReference'));
+            if (!preg_match('/^[A-Z0-9-]{6,30}$/', $ref)) {
+                throw new UserError('Type the ' . $paymentMethod . ' reference number (6 to 30 letters or numbers).');
+            }
+            $dup = $pdo->prepare('SELECT id FROM bills WHERE payment_method = ? AND payment_reference = ? AND id <> ? LIMIT 1');
+            $dup->execute([$paymentMethod, $ref, $id]);
+            if ($dup->fetchColumn()) {
+                throw new UserError('This ' . $paymentMethod . ' reference number was already used on another bill.');
+            }
+            $paymentRef = $ref;
+        }
+    } else {
+        $paymentMethod = '';
+    }
+
     $row = [
         'id' => $id,
         'queue_entry_id' => need(sv($b, 'queueEntryId'), 'Visit'),
@@ -744,7 +760,8 @@ function save_bills(PDO $pdo, array $b, bool $isNew, array $user): void {
         'created_at' => to_datetime(sv($b, 'createdAt')) ?? date('Y-m-d H:i:s'),
         'status' => $status,
         'total' => (int)($b['total'] ?? 0),
-        'payment_method' => nz(sv($b, 'paymentMethod')),
+        'payment_method' => $paymentMethod === '' ? null : $paymentMethod,
+        'payment_reference' => $paymentRef,
         'cash_received' => isset($b['cashReceived']) ? (int)$b['cashReceived'] : null,
         'change_amount' => isset($b['change']) ? (int)$b['change'] : null,
         'paid_date' => check_date(sv($b, 'paidDate'), 'Paid date', false),
@@ -756,7 +773,7 @@ function save_bills(PDO $pdo, array $b, bool $isNew, array $user): void {
         'discount_amount' => (int)($b['discountAmount'] ?? 0),
     ];
     check_len($row, ['id' => 10, 'queue_entry_id' => 10, 'patient_id' => 10, 'doctor_username' => 20,
-        'payment_method' => 10, 'paid_by' => 20, 'discount_id_number' => 30]);
+        'payment_method' => 20, 'payment_reference' => 30, 'paid_by' => 20, 'discount_id_number' => 30]);
 
     upsert($pdo, 'bills', $row, $isNew);
 
@@ -779,6 +796,7 @@ function read_audit_logs(array $user): array {
     }
     return $list;
 }
+
 /* ================= test results (text only) ================= */
 
 function read_test_results(array $user): array {

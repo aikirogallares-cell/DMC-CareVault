@@ -1,6 +1,8 @@
 /*
  * PatientApprovalsPage.js
  * Purpose: Admin reviews new patient registrations and approves or rejects them.
+ * Approve links the account automatically when all four details match one record.
+ * When a possible match is not exact, the admin chooses the record to link, or confirms a new record.
  * Patients cannot sign in until their account is Approved.
  */
 class PatientApprovalsPage {
@@ -46,6 +48,8 @@ class PatientApprovalsPage {
 
             if (action === "approve") {
                 page.approve(accountId);
+            } else if (action === "find") {
+                page.findMatches(accountId);
             } else if (action === "reject") {
                 page.openRejectDialog(accountId);
             }
@@ -111,8 +115,8 @@ class PatientApprovalsPage {
         html += "<dt>Date of birth</dt><dd>" + safe(account.birth_date) + " (age " + safe(age) + ")</dd>";
         html += "<dt>Registered</dt><dd>" + safe(account.created_at) + "</dd>";
         if (account.guardian_name) {
-        html += "<dt>Guardian</dt><dd>" + safe(account.guardian_name) + " (" + safe(account.guardian_relationship) + ")</dd>";
-        html += "<dt>Guardian contact</dt><dd>" + safe(account.guardian_contact) + "</dd>";
+            html += "<dt>Guardian</dt><dd>" + safe(account.guardian_name) + " (" + safe(account.guardian_relationship) + ")</dd>";
+            html += "<dt>Guardian contact</dt><dd>" + safe(account.guardian_contact) + "</dd>";
         }
         html += "</dl>";
 
@@ -129,6 +133,7 @@ class PatientApprovalsPage {
 
         if (isPending) {
             html += '<div class="popup-actions">';
+            html += '<button class="btn ghost" data-action="find" data-id="' + safe(account.id) + '">Find existing record</button>';
             html += '<button class="btn" data-action="approve" data-id="' + safe(account.id) + '">Approve</button>';
             html += '<button class="btn danger" data-action="reject" data-id="' + safe(account.id) + '">Reject</button>';
             html += "</div>";
@@ -138,15 +143,148 @@ class PatientApprovalsPage {
         return html;
     }
 
-    approve(accountId) {
+    // ----- Talking to the server -----
+
+    // Reads the JSON reply. A reply with success false is returned, so the caller can read the message and matches.
+    async readReply(response) {
         try {
-            patientApprovalService.approve(accountId);
-            notifier.showSuccess("Account approved. The patient can now sign in.");
+            return await response.json();
+        } catch (error) {
+            throw new Error("The server did not answer. Check that Apache and MySQL are running in XAMPP.");
+        }
+    }
+
+    // action: "approve" or "link". body: { id, patientId?, createNew? }
+    async callApi(action, body) {
+        const response = await fetch(storageService.apiPath + "patient-approvals.php?action=" + action, {
+            method: "POST",
+            credentials: "same-origin",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(body)
+        });
+        return this.readReply(response);
+    }
+
+    // Possible existing Patient Records for one account.
+    async getMatches(accountId) {
+        const response = await fetch(storageService.apiPath + "patient-approvals.php?matchFor=" +
+            encodeURIComponent(accountId), { credentials: "same-origin" });
+        const reply = await this.readReply(response);
+        if (!reply.success) {
+            throw new Error(reply.message || "The matches could not be loaded.");
+        }
+        return reply.matches || [];
+    }
+
+    // ----- Approve, link, and find -----
+
+    async approve(accountId) {
+        try {
+            const reply = await this.callApi("approve", { id: accountId });
+            if (reply.success) {
+                notifier.showSuccess("Account approved. The patient can now sign in.");
+                this.refresh();
+                return;
+            }
+            if (reply.needsReview) {
+                this.openMatchDialog(accountId, reply.matches || [], reply.message, true);
+                return;
+            }
+            notifier.showError(reply.message || "The account could not be approved.");
+        } catch (error) {
+            notifier.showError(error.message);
+        }
+    }
+
+    async findMatches(accountId) {
+        try {
+            const matches = await this.getMatches(accountId);
+            const message = matches.length > 0
+                ? "Possible existing records for this account. Link only if you have confirmed it is the same person."
+                : "No existing record matches this account. Approve it to create a new record.";
+            this.openMatchDialog(accountId, matches, message, false);
+        } catch (error) {
+            notifier.showError(error.message);
+        }
+    }
+
+    // Shows the possible matches. canCreateNew is true when Approve asked for a review.
+    openMatchDialog(accountId, matches, message, canCreateNew) {
+        const page = this;
+        const safe = htmlHelper.escapeText;
+
+        let body = '<p class="popup-lead">' + safe(message || "") + "</p>";
+        if (matches.length === 0) {
+            body += '<div class="empty">No matching records.</div>';
+        }
+        matches.forEach(function (match) {
+            const name = [match.first_name, match.middle_name, match.last_name]
+                .filter(function (part) { return part; }).join(" ");
+            const reasons = (match.reasons || []).join(", ") || "-";
+
+            body += '<div class="card" style="margin:8px 0">' +
+                '<div style="display:flex;justify-content:space-between;gap:10px;align-items:center;flex-wrap:wrap">' +
+                "<div><b>" + safe(name) + "</b> (" + safe(match.id) + ")" +
+                '<div class="small">Born ' + safe(match.birth_date) + " · " + safe(match.contact_number || "-") +
+                " · " + safe(match.email || "-") + "</div>" +
+                '<div class="small">Matches on: ' + safe(reasons) + "</div></div>" +
+                '<button class="btn sm" data-link="' + safe(match.id) + '">Link to this record</button>' +
+                "</div></div>";
+        });
+
+        if (canCreateNew) {
+            body += '<div class="popup-actions"><button class="btn ghost" data-create="1">Create a new record instead</button></div>';
+        }
+
+        const dialog = new ModalDialog("Existing patient records", body, {
+            saveButtonText: "Close",
+            onSave: function () {}
+        });
+        dialog.open();
+
+        const dialogElement = dialog.getElement();
+        dialogElement.addEventListener("click", function (event) {
+            const linkButton = event.target.closest("button[data-link]");
+            if (linkButton !== null) {
+                page.linkAccount(accountId, linkButton.getAttribute("data-link"), dialog);
+                return;
+            }
+            const createButton = event.target.closest("button[data-create]");
+            if (createButton !== null) {
+                page.createNewRecord(accountId, dialog);
+            }
+        });
+    }
+
+    async linkAccount(accountId, patientId, dialog) {
+        try {
+            const reply = await this.callApi("link", { id: accountId, patientId: patientId });
+            if (!reply.success) {
+                throw new Error(reply.message || "The account could not be linked.");
+            }
+            dialog.close();
+            notifier.showSuccess("Account linked to " + patientId + ". The patient can now see their records.");
             this.refresh();
         } catch (error) {
             notifier.showError(error.message);
         }
     }
+
+    async createNewRecord(accountId, dialog) {
+        try {
+            const reply = await this.callApi("approve", { id: accountId, createNew: true });
+            if (!reply.success) {
+                throw new Error(reply.message || "The account could not be approved.");
+            }
+            dialog.close();
+            notifier.showSuccess("Account approved. A new patient record was created.");
+            this.refresh();
+        } catch (error) {
+            notifier.showError(error.message);
+        }
+    }
+
+    // ----- Reject -----
 
     openRejectDialog(accountId) {
         const page = this;

@@ -1,7 +1,7 @@
 <?php
 /*
- * patient/api/portal.php - the signed-in patient's own pages:
- * visit booking (free times), their visits, prescriptions and medicines.
+ * patient/apipatient/portal.php - the signed-in patient's own pages:
+ * visit booking (free times), their visits, prescriptions, medicines and records.
  * Every action only reads or changes the records of the patient who is signed in.
  */
 require __DIR__ . '/../../api/config.php';
@@ -77,6 +77,15 @@ if ($action === 'medications') {
     json_out(['success' => true, 'medicines' => medicine_list(load_records($account['patient_id']))]);
 }
 
+if ($action === 'records') {
+    json_out(['success' => true] + load_clinical_records($account['patient_id']));
+}
+
+if ($action === 'change_password') {
+    change_password($account, $in);
+    json_out(['success' => true, 'message' => 'Your password was changed. Use the new password the next time you sign in.']);
+}
+
 throw new UserError('Unknown action.');
 
 /* ================= signed-in patient ================= */
@@ -127,9 +136,6 @@ function slots_for(string $date): array {
     }
     return $slots;
 }
-
-
-
 
 // A queue ID such as A-483920 that is not used yet (queue_entries.id is 10 characters at most).
 function new_queue_id(PDO $pdo): string {
@@ -255,6 +261,54 @@ function cancel_booking(array $account, int $id): void {
     log_action($account['username'], 'Patient', 'Visit cancelled', 'Booking #' . $id);
 }
 
+/* ================= clinical records (visits, check-ups, test results) ================= */
+
+// The clinical records the patient may see: every completed visit (with its test results),
+// the doctor's check-up notes, and the test results. Prescriptions have their own tab.
+function load_clinical_records(?string $patientId): array {
+    if ($patientId === null || $patientId === '') {
+        return ['linked' => false, 'visits' => [], 'checkups' => [], 'tests' => []];
+    }
+    $pdo = db();
+
+    // Every completed visit, newest first.
+    $st = $pdo->prepare("SELECT id, visit_date, reason, queue_number
+        FROM queue_entries
+        WHERE patient_id = ? AND status = 'Completed'
+        ORDER BY visit_date DESC, queue_number ASC");
+    $st->execute([$patientId]);
+    $visits = $st->fetchAll();
+
+    // Test results, grouped under the visit they belong to.
+    $st = $pdo->prepare('SELECT queue_entry_id, test_name, result_text, recorded_at
+        FROM test_results WHERE patient_id = ? ORDER BY recorded_at DESC');
+    $st->execute([$patientId]);
+    $testsByVisit = [];
+    foreach ($st->fetchAll() as $t) {
+        $testsByVisit[$t['queue_entry_id']][] = $t;
+    }
+    foreach ($visits as &$v) {
+        $v['tests'] = $testsByVisit[$v['id']] ?? [];
+    }
+    unset($v);
+
+    // Doctor's check-up notes.
+    $st = $pdo->prepare("SELECT c.consult_date, c.chief_complaint, c.blood_pressure, c.heart_rate,
+            c.temperature, c.respiratory_rate, c.weight, c.height, c.diagnosis, c.treatment,
+            u.full_name AS doctor_name
+        FROM consultations c
+        LEFT JOIN users u ON u.username = c.doctor_username
+        WHERE c.patient_id = ? AND c.status = 'Completed'
+        ORDER BY c.consult_date DESC, c.id DESC");
+    $st->execute([$patientId]);
+    $checkups = $st->fetchAll();
+
+    // Test results that are not tied to a visit.
+    $tests = $testsByVisit[''] ?? [];
+
+    return ['linked' => true, 'visits' => $visits, 'checkups' => $checkups, 'tests' => $tests];
+}
+
 /* ================= prescriptions and medicines ================= */
 
 function medicine_rows(array $rows): array {
@@ -310,44 +364,101 @@ function load_records(?string $patientId): array {
     return $records;
 }
 
-// The last day of a course. Day 1 is the prescription date, the same rule as MedicalRecordService.js.
-function course_end(string $start, string $duration): ?string {
-    if (!preg_match('/^(\d+)\s*(day|days|week|weeks|month|months)$/i', trim($duration), $m)) {
+// Reads the course length from the duration text: "15", "15 days", "2 weeks" or "1 month".
+// A bare number counts as days. Returns null when no number can be read.
+function course_days(string $duration): ?int {
+    if (!preg_match('/(\d+)\s*(day|days|week|weeks|month|months)?/i', trim($duration), $m)) {
         return null;
     }
-    $unitDays = stripos($m[2], 'day') === 0 ? 1 : (stripos($m[2], 'week') === 0 ? 7 : 30);
-    return date('Y-m-d', strtotime($start . ' +' . ((int)$m[1] * $unitDays - 1) . ' days'));
+    $number = (int)$m[1];
+    $unit = strtolower($m[2] ?? 'day');
+    if (str_starts_with($unit, 'week')) {
+        return $number * 7;
+    }
+    if (str_starts_with($unit, 'month')) {
+        return $number * 30;
+    }
+    return $number;
 }
 
-// Every medicine with its status: Taking now, Finished, or Ask the clinic (unknown duration).
+// Taking now, Finished, Starts later, or unknown. Day 1 is the prescription date.
+function medicine_course_status(string $prescribedDate, string $duration): array {
+    $days = course_days($duration);
+    if ($days === null || $days < 1) {
+        return ['status' => 'unknown', 'label' => 'Ask the clinic (course length not set)'];
+    }
+
+    $start = new DateTime($prescribedDate);
+    $end   = (clone $start)->modify('+' . ($days - 1) . ' days');
+    $today = new DateTime('today');
+    $dayNumber = (int)$start->diff($today)->format('%r%a') + 1;
+
+    if ($dayNumber < 1) {
+        return ['status' => 'future', 'label' => 'Starts ' . $start->format('Y-m-d')];
+    }
+    if ($today > $end) {
+        return ['status' => 'finished', 'label' => 'Finished on ' . $end->format('Y-m-d')];
+    }
+    return [
+        'status' => 'taking',
+        'label'  => 'Taking now · Day ' . $dayNumber . ' of ' . $days . ' · until ' . $end->format('Y-m-d'),
+    ];
+}
+
+    /* ================= change password ================= */
+
+    // The signed-in patient changes their own password. The current password must be right first.
+    function change_password(array $account, array $in): void {
+        $current = (string)($in['currentPassword'] ?? '');
+        $new     = (string)($in['newPassword'] ?? '');
+        $confirm = (string)($in['confirmPassword'] ?? '');
+
+        $st = db()->prepare('SELECT password_hash FROM patient_accounts WHERE id = ?');
+        $st->execute([$account['id']]);
+        $hash = $st->fetchColumn();
+
+        if ($hash === false || !password_verify($current, $hash)) {
+            log_action($account['username'], 'Patient', 'Login failed', 'Wrong current password (change password)');
+            throw new UserError('Your current password is wrong.');
+        }
+        if (strlen($new) < 8 || strlen($new) > 72) {
+            throw new UserError('The new password must be 8 to 72 characters.');
+        }
+        if ($new !== $confirm) {
+            throw new UserError('The two new passwords do not match. Type the same password in both boxes.');
+        }
+        if (password_verify($new, $hash)) {
+            throw new UserError('Choose a password that is different from your current one.');
+        }
+
+        db()->prepare('UPDATE patient_accounts SET password_hash = ? WHERE id = ?')
+            ->execute([password_hash($new, PASSWORD_DEFAULT), $account['id']]);
+
+        // A new session ID after a sensitive change makes it harder for an old session to be reused.
+        session_regenerate_id(true);
+        log_action($account['username'], 'Patient', 'Password changed', 'Patient changed their own password');
+    }
+
+// Every medicine with its course status, shown on the Medicines tab.
 function medicine_list(array $records): array {
-    $today = date('Y-m-d');
     $list = [];
     foreach ($records as $record) {
         foreach ($record['medicines'] as $m) {
-            $end = course_end($record['date'], $m['duration']);
-            if ($end === null) {
-                $status = 'Ask the clinic';
-                $until = '-';
-            } elseif ($end >= $today) {
-                $status = 'Taking now';
-                $until = $end;
-            } else {
-                $status = 'Finished';
-                $until = $end;
-            }
+            $course = medicine_course_status($record['date'], $m['duration']);
             $list[] = $m + [
-                'date'   => $record['date'],
-                'doctor' => $record['doctor'],
-                'source' => $record['source'],
-                'status' => $status,
-                'until'  => $until,
+                'date'         => $record['date'],
+                'doctor'       => $record['doctor'],
+                'source'       => $record['source'],
+                'courseStatus' => $course['status'],
+                'courseLabel'  => $course['label'],
             ];
         }
     }
-    $rank = ['Taking now' => 0, 'Ask the clinic' => 1, 'Finished' => 2];
+
+    // Taking now first, then unknown, starting later, and finished. Newest prescriptions first within each group.
+    $rank = ['taking' => 0, 'unknown' => 1, 'future' => 2, 'finished' => 3];
     usort($list, function ($a, $b) use ($rank) {
-        return [$rank[$a['status']], $b['date']] <=> [$rank[$b['status']], $a['date']];
+        return [$rank[$a['courseStatus']], $b['date']] <=> [$rank[$b['courseStatus']], $a['date']];
     });
     return $list;
 }

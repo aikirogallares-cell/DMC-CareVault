@@ -65,7 +65,34 @@
             <button class="tab" data-tab="bookings" type="button">My visits</button>
             <button class="tab" data-tab="prescriptions" type="button">Prescriptions</button>
             <button class="tab" data-tab="medications" type="button">Medicines</button>
+            <button class="tab" data-tab="records" type="button">My records</button>
+            <button class="tab" data-tab="account" type="button">My account</button>
         </div>
+
+        <section class="section card" id="tab-records">
+            <h3>My records</h3>
+            <div class="small">Check-ups and test results from your clinic record.</div>
+            <div id="recordsList"></div>
+        </section>
+
+        <section class="section card" id="tab-account">
+            <h3>Change my password</h3>
+            <div class="small">Use at least 8 characters. Do not share your password with anyone.</div>
+            <div class="fg">
+                <label for="curPass">Current password</label>
+                <input id="curPass" type="password" autocomplete="current-password">
+            </div>
+            <div class="fg">
+                <label for="newPass">New password (8+ characters)</label>
+                <input id="newPass" type="password" autocomplete="new-password">
+            </div>
+            <div class="fg">
+                <label for="confirmPass">Type the new password again</label>
+                <input id="confirmPass" type="password" autocomplete="new-password">
+            </div>
+            <button class="btn" id="changePassButton" type="button">Change password</button>
+            <div class="msg" id="accountMsg"></div>
+        </section>
 
         <!-- Book a visit -->
         <section class="section card" id="tab-visit">
@@ -78,10 +105,14 @@
                 <div class="fg">
                     <label for="visitReason">Reason for visit</label>
                     <select id="visitReason">
-                        <option>Check-up</option>
-                        <option>Getting Blood(you should fasting for 10 - 12 hourse without taking any food or drink)</option>
-                        <option>Getting Urine</option>
+                        <option value="Check-up">Check-up</option>
+                        <option value="X-ray">X-ray</option>
+                        <option value="Urine Test">Urine Test</option>
+                        <option value="Blood Test">Blood Test</option>
                     </select>
+                    <p class="small" id="fastingNote" style="display:none;color:var(--amb)">
+                        For blood tests, fast for 10 to 12 hours. Do not eat or drink anything except water.
+                    </p>
                 </div>
             </div>
             <p class="small" id="slotHint"></p>
@@ -120,7 +151,7 @@
     </main>
 
     <script>
-        const api = "api/portal.php?action=";
+        const api = "apipatient/portal.php?action=";
 
         function el(tag, text, className) {
             const node = document.createElement(tag);
@@ -141,6 +172,99 @@
             const day = String(now.getDate()).padStart(2, "0");
             return now.getFullYear() + "-" + month + "-" + day;
         }
+
+        async function loadRecords() {
+            const list = document.getElementById("recordsList");
+            list.replaceChildren();
+            try {
+                const reply = await request("records");
+                if (!reply.linked) {
+                    list.appendChild(el("div", "Your account is not linked to a clinic record yet. Please visit the clinic front desk.", "empty"));
+                    return;
+                }
+
+                // Every visit, with its test results underneath.
+                const visits = el("div", null, "card");
+                visits.appendChild(el("h3", "Visits"));
+                if (reply.visits.length === 0) {
+                    visits.appendChild(el("div", "No visits yet.", "empty"));
+                }
+                reply.visits.forEach(function (v) {
+                    const row = el("div", null, "row");
+                    const info = el("div");
+                    info.appendChild(el("b", v.visit_date + " · " + v.reason + " (queue #" + (v.queue_number || "-") + ")"));
+                    if (v.tests.length === 0) {
+                        info.appendChild(el("div", "No test results recorded for this visit.", "small"));
+                    }
+                    v.tests.forEach(function (t) {
+                        info.appendChild(el("div", t.test_name + ": " + t.result_text, "small"));
+                    });
+                    row.appendChild(info);
+                    visits.appendChild(row);
+                });
+                list.appendChild(visits);
+
+                const checkups = el("div", null, "card");
+                checkups.appendChild(el("h3", "Check-ups"));
+                if (reply.checkups.length === 0) {
+                    checkups.appendChild(el("div", "No check-ups yet.", "empty"));
+                }
+                reply.checkups.forEach(function (c) {
+                    const row = el("div", null, "row");
+                    const info = el("div");
+                    info.appendChild(el("b", c.consult_date + " · " + (c.doctor_name || "Doctor")));
+                    info.appendChild(el("div", "Complaint: " + c.chief_complaint, "small"));
+                    info.appendChild(el("div", "BP " + (c.blood_pressure || "-") + " · HR " + (c.heart_rate || "-") +
+                        " · Temp " + (c.temperature || "-") + " °C · RR " + (c.respiratory_rate || "-") +
+                        " · Weight " + (c.weight || "-") + " kg", "small"));
+                    info.appendChild(el("div", "Diagnosis: " + c.diagnosis, "small"));
+                    if (c.treatment) { info.appendChild(el("div", "Treatment: " + c.treatment, "small")); }
+                    row.appendChild(info);
+                    checkups.appendChild(row);
+                });
+                list.appendChild(checkups);
+
+                // Results that are not attached to a visit.
+                if (reply.tests.length > 0) {
+                    const tests = el("div", null, "card");
+                    tests.appendChild(el("h3", "Other test results"));
+                    reply.tests.forEach(function (t) {
+                        const row = el("div", null, "row");
+                        const info = el("div");
+                        info.appendChild(el("b", t.test_name));
+                        info.appendChild(el("div", t.recorded_at, "small"));
+                        info.appendChild(el("div", t.result_text));
+                        row.appendChild(info);
+                        tests.appendChild(row);
+                    });
+                    list.appendChild(tests);
+                }
+            } catch (error) {
+                list.appendChild(el("div", error.message, "empty"));
+            }
+        }
+
+        // ----- My account: change password -----
+
+        document.getElementById("changePassButton").addEventListener("click", async function () {
+            const button = this;
+            button.disabled = true;
+            try {
+                const reply = await request("change_password", {
+                    currentPassword: document.getElementById("curPass").value,
+                    newPassword: document.getElementById("newPass").value,
+                    confirmPassword: document.getElementById("confirmPass").value
+                });
+                ["curPass", "newPass", "confirmPass"].forEach(function (id) {
+                    document.getElementById(id).value = "";
+                });
+                showMsg("accountMsg", reply.message, true);
+            } catch (error) {
+                showMsg("accountMsg", error.message, false);
+            } finally {
+                button.disabled = false;
+            }
+        });
 
         async function request(action, body, query) {
             const options = body
@@ -175,6 +299,7 @@
             if (name === "visit") { loadSlots(); }
             if (name === "bookings") { loadBookings(); }
             if (name === "prescriptions") { loadPrescriptions(); }
+            if (name === "records") { loadRecords(); }
             if (name === "medications") { loadMedications(); }
         }
 
@@ -246,6 +371,16 @@
             loadSlots();
         });
 
+        // Shows the fasting reminder only for visits that need a blood sample.
+            const reasonBox = document.getElementById("visitReason");
+            const fastingNote = document.getElementById("fastingNote");
+            function updateFastingNote() {
+                const needsFasting = reasonBox.value === "Blood Test" || reasonBox.value === "Getting Blood";
+                fastingNote.style.display = needsFasting ? "block" : "none";
+            }
+            reasonBox.addEventListener("change", updateFastingNote);
+            updateFastingNote();
+            
         // ----- My visits -----
 
         async function loadBookings() {

@@ -143,3 +143,39 @@ textarea{resize:none;min-height:90px}
 #registerError { font-weight: 600; }
 
 .medrow{grid-template-columns:2fr 1fr 2.2fr 1fr .6fr 2fr auto}
+
+/* ---- Prescription and consultation dialogs: make every field readable ---- */
+
+/* Wider dialog that scrolls inside the screen instead of cutting off the bottom. */
+.modal.rx-wide {
+    width: min(1180px, 96vw);
+    max-height: 92vh;
+    overflow-y: auto;
+}
+
+/* Main form on the left, previous results on the right. */
+.modal.rx-wide .rx-layout {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 280px;
+    gap: 18px;
+    align-items: start;
+}
+
+/* "Hide previous results" gives the form the full width. */
+.modal.rx-wide .rx-layout.rx-hidden {
+    grid-template-columns: minmax(0, 1fr);
+}
+.modal.rx-wide .rx-layout.rx-hidden .rx-side {
+    display: none;
+}
+
+/* Inputs can shrink to fit their box, so they are never squeezed to a sliver. */
+.modal.rx-wide .rx-main {
+    min-width: 0;
+}
+.modal.rx-wide .rx-main input,
+.modal.rx-wide .rx-main select {
+    min-width: 90px;
+    width: 100%;
+    box-sizing: border-box;
+}

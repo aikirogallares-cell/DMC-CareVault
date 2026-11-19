@@ -3,7 +3,7 @@
  * patient/api/account.php - patient registration, "who is logged in", and logout.
  * New accounts start as Pending. Patients aged 18 or younger must give a guardian.
  */
-require __DIR__ . '/../../apiclinic/config.php';
+require __DIR__ . '/../../api/config.php';
 
 const GUARDIAN_AGE_LIMIT = 18;
 

@@ -184,16 +184,16 @@
                     <div class="fg">
                         <label for="regGender">Gender</label>
                         <select id="regGender">
-                        <option value="">Choose...</option>
-                        <option>Male</option>
-                        <option>Female</option>
-                            </select>
+                            <option value="">Choose...</option>
+                            <option>Male</option>
+                            <option>Female</option>
+                        </select>
                     </div>
                     <div class="fg">
                         <label for="regContact">Contact number</label>
-                        <input id="regContact" placeholder="09171234567" inputmode="numeric" maxlength="11">
+                        <input id="regContact" inputmode="numeric" maxlength="11">
                     </div>
-                    <div class="fg full">
+                    <div class="fg">
                         <label for="regEmail">Email (optional)</label>
                         <input id="regEmail" type="email">
                     </div>
@@ -205,59 +205,43 @@
                         <label for="regPassword">Password (8+ characters)</label>
                         <input id="regPassword" type="password" autocomplete="new-password">
                     </div>
-                </div>
+                    <div class="fg full">
+                        <label for="regAddress">Address</label>
+                        <input id="regAddress" autocomplete="street-address">
+                    </div>
                 <div id="guardianBox" class="hidden">
-                <p class="note" id="guardianNote" style="font-weight:600;color:var(--gd);margin:0 0 10px"></p>
-                 <div class="form-grid">
-             <div class="fg full">
-            <label for="regGuardianName">Parent or guardian full name</label>
-            <input id="regGuardianName" autocomplete="off">
-            <div class="fg full">
-            <label for="regAddress">Address</label>
-            <input id="regAddress" autocomplete="street-address">
+                    <p class="note" id="guardianNote" style="font-weight:600;color:var(--gd);margin:0 0 10px"></p>
+                    <div class="form-grid">
+                        <div class="fg full">
+                            <label for="regGuardianName">Parent or guardian full name</label>
+                            <input id="regGuardianName" autocomplete="off">
+                        </div>
+                        <div class="fg">
+                            <label for="regGuardianRelationship">Relationship</label>
+                            <select id="regGuardianRelationship">
+                                <option value="">Choose...</option>
+                                <option>Parent</option>
+                                <option>Guardian</option>
+                                <option>Grandparent</option>
+                                <option>Sibling</option>
+                                <option>Relative</option>
+                            </select>
+                        </div>
+                        <div class="fg">
+                            <label for="regGuardianContact">Guardian contact number</label>
+                            <input id="regGuardianContact" placeholder="09171234567" inputmode="numeric" maxlength="11">
+                        </div>
+                    </div>
                 </div>
-                <div class="fg">
-            <label for="regWeight">Weight (kg), optional</label>
-            <input id="regWeight" inputmode="decimal" placeholder="e.g. 55">
-                </div>
-                <div class="fg full">
-            <label for="regPastHistory">Past medical history</label>
-            <textarea id="regPastHistory" rows="2"></textarea>
-                </div>
-                <div class="fg full">
-            <label for="regFamilyHistory">Family history</label>
-            <textarea id="regFamilyHistory" rows="2"></textarea>
-                </div>
-                <div class="fg full">
-            <label for="regAllergyHistory">History of allergy</label>
-            <textarea id="regAllergyHistory" rows="2"></textarea>
-                </div>  
-        </div>
-        <div class="fg">
-            <label for="regGuardianRelationship">Relationship</label>
-            <select id="regGuardianRelationship">
-                <option value="">Choose...</option>
-                <option>Parent</option>
-                <option>Guardian</option>
-                <option>Grandparent</option>
-                <option>Sibling</option>
-                <option>Relative</option>
-            </select>
-        </div>
-        <div class="fg">
-            <label for="regGuardianContact">Guardian contact number</label>
-            <input id="regGuardianContact" placeholder="09171234567" inputmode="numeric" maxlength="11">
-        </div>
-    </div>
-</div>
+
                 <div class="err" id="registerError" role="alert"></div>
                 <button class="btn" id="registerButton">Create account</button>
-                <p class="note">Accounts for Admin, Doctor and Staff are created by the administrator.</p>
-            </div>
-        </section>
-    </main>
+                <p class="note">the admin will check your application.</p>
+                </div>
+            </section>
+        </main>
+        <script>
 
-    <script>
         // ---- Clinic information. Edit these lists to change what the page shows. ----
         // day: 0 = Sunday ... 6 = Saturday. Times use 24-hour format. open: null means closed.
         const weeklySchedule = [
@@ -375,12 +359,17 @@
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify(body)
             });
-            let reply = {};
+
+            // Read the raw text first, so the real server output can be shown if it is not JSON.
+            const text = await response.text();
+            let reply;
             try {
-                reply = await response.json();
+                reply = JSON.parse(text);
             } catch (error) {
-                throw new Error("The server did not answer. Check that Apache and MySQL are running in XAMPP.");
+                const cleaned = text.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
+                throw new Error("Server said: " + (cleaned.slice(0, 300) || "(empty reply, HTTP " + response.status + ")"));
             }
+
             if (!response.ok || reply.success === false) {
                 throw new Error(reply.message || "Something went wrong. Please try again.");
             }
@@ -436,48 +425,60 @@
                 : "";
                 }
 
-    async function registerPatient() {
-    const errorBox = document.getElementById("registerError");
-    errorBox.style.color = "";
-    errorBox.textContent = "";
-
-    const birthDate = document.getElementById("regBirthDate").value;
-    if (birthDate === "") {
-        errorBox.textContent = "Date of birth is required.";
-        return;
+// Reads a text box by its ID. If the box is missing from the page, shows which ID is missing.
+function fieldValue(id) {
+    const element = document.getElementById(id);
+    if (element === null) {
+        throw new Error("The form is missing the field '" + id + "'. Check its id in clinichomepage.html.");
     }
-    
-    if (birthDate > todayText()) {
-        errorBox.textContent = "Date of birth cannot be in the future.";
-        return;
-    }
-    
+    return element.value.trim();
+}
 
-    const body = {
-        fullName: document.getElementById("regFullName").value.trim(),
-        birthDate: birthDate,
-        gender: document.getElementById("regGender").value,
-        contactNumber: document.getElementById("regContact").value.trim(),
-        email: document.getElementById("regEmail").value.trim(),
-        username: document.getElementById("regUsername").value.trim(),
-        password: document.getElementById("regPassword").value,
-        guardianName: document.getElementById("regGuardianName").value.trim(),
-        guardianContact: document.getElementById("regGuardianContact").value.trim(),
-        guardianRelationship: document.getElementById("regGuardianRelationship").value,
-        address: document.getElementById("regAddress").value.trim(),
-        weightKg: document.getElementById("regWeight").value.trim(),
-        pastMedicalHistory: document.getElementById("regPastHistory").value.trim(),
-        familyHistory: document.getElementById("regFamilyHistory").value.trim(),
-        allergyHistory: document.getElementById("regAllergyHistory").value.trim(),
-    };
-    try {
-        const reply = await postJson("patient/api/account.php?action=register", body);
-        errorBox.style.color = "var(--g)";
-        errorBox.textContent = reply.message;
-        document.getElementById("registerButton").disabled = true;
-             } catch (error) {
-        errorBox.textContent = error.message;
-         }
+// Reads a password exactly as typed, with no trimming.
+function passwordValue(id) {
+    const element = document.getElementById(id);
+    if (element === null) {
+        throw new Error("The form is missing the field '" + id + "'. Check its id in clinichomepage.html.");
+    }
+    return element.value;
+}
+
+        async function registerPatient() {
+            const errorBox = document.getElementById("registerError");
+            errorBox.style.color = "";
+            errorBox.textContent = "";
+
+            try {
+                const birthDate = fieldValue("regBirthDate");
+                if (birthDate === "") {
+                    throw new Error("Date of birth is required.");
+                }
+                if (birthDate > todayText()) {
+                    throw new Error("Date of birth cannot be in the future.");
+                }
+
+                const body = {
+                    fullName: fieldValue("regFullName"),
+                    birthDate: birthDate,
+                    gender: fieldValue("regGender"),
+                    contactNumber: fieldValue("regContact"),
+                    email: fieldValue("regEmail"),
+                    username: fieldValue("regUsername"),
+                    password: passwordValue("regPassword"),
+                    guardianName: fieldValue("regGuardianName"),
+                    guardianContact: fieldValue("regGuardianContact"),
+                    guardianRelationship: fieldValue("regGuardianRelationship"),
+                    address: fieldValue("regAddress"),
+                };
+
+                const reply = await postJson("patient/apipatient/account.php?action=register", body);
+                errorBox.style.color = "var(--g)";
+                errorBox.textContent = reply.message || "Account created. Wait for the clinic to approve it.";
+                document.getElementById("registerButton").disabled = true;
+            } catch (error) {
+                errorBox.style.color = "";
+                errorBox.textContent = error.message;
+            }
         }
 
         document.getElementById("modeSignIn").addEventListener("click", function () { setMode("signin"); });

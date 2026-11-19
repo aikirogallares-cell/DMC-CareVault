@@ -7,6 +7,7 @@ class PatientsPage {
     constructor() {
         this.mainElement = null;
         this.searchKeyword = "";
+        this.showArchived = false;
     }
 
     start() {
@@ -22,54 +23,70 @@ class PatientsPage {
     // ---------- Page layout ----------
 
     showPage() {
-        let html = "<h2>Patient Records</h2>";
-        html += '<div class="toolbar">';
-        html += '<input id="searchInput" placeholder="Search ID, name or contact number...">';
+        const canCreate = permissionService.userCan("patients.create");
+        const title = this.showArchived ? "Archived Patients" : "Patient Records";
 
-        if (permissionService.userCan("patients.create")) {
+        let html = "<h2>" + title + "</h2>";
+        html += '<div class="toolbar">';
+        html += '<button class="btn sm ' + (this.showArchived ? "ghost" : "") + '" id="showActiveButton">Active patients</button>';
+        html += '<button class="btn sm ' + (this.showArchived ? "" : "ghost") + '" id="showArchivedButton">Archived patients</button>';
+        html += '<input id="searchInput" placeholder="Search ID, name or contact number..." value="' +
+            htmlHelper.escapeText(this.searchKeyword) + '">';
+        if (canCreate && this.showArchived === false) {
             html += '<button class="btn" id="addPatientButton">+ Add Patient</button>';
         }
         html += "</div>";
         html += '<div class="card" id="patientTable"></div>';
 
         this.mainElement.innerHTML = html;
-
         this.connectEvents();
         this.refreshTable();
 
-        // The staff dashboard links here with ?new=1 to open the registration form directly.
+        // The staff dashboard links here with ?new=1. Clear it after opening, so switching views does not reopen the form.
         const urlParameters = new URLSearchParams(window.location.search);
-        if (urlParameters.get("new") === "1" && permissionService.userCan("patients.create")) {
+        if (urlParameters.get("new") === "1" && canCreate && this.showArchived === false) {
+            window.history.replaceState(null, "", window.location.pathname);
             this.openPatientForm(null);
         }
     }
 
-    connectEvents() {
-        const page = this;
+        connectEvents() {
+            const page = this;
 
-        document.getElementById("searchInput").addEventListener("input", function (event) {
-            page.searchKeyword = event.target.value;
-            page.refreshTable();
-        });
-
-        const addButton = document.getElementById("addPatientButton");
-        if (addButton !== null) {
-            addButton.addEventListener("click", function () {
-                page.openPatientForm(null);
+            document.getElementById("searchInput").addEventListener("input", function (event) {
+                page.searchKeyword = event.target.value;
+                page.refreshTable();
             });
-        }
 
-        // One listener on the table handles every View / Edit / Archive button.
-        document.getElementById("patientTable").addEventListener("click", function (event) {
-            page.handleTableButtonClick(event);
-        });
+            document.getElementById("showActiveButton").addEventListener("click", function () {
+                page.showArchived = false;
+                page.showPage();
+            });
+            document.getElementById("showArchivedButton").addEventListener("click", function () {
+                page.showArchived = true;
+                page.showPage();
+            });
+
+            const addButton = document.getElementById("addPatientButton");
+            if (addButton !== null) {
+                addButton.addEventListener("click", function () {
+                    page.openPatientForm(null);
+                });
+            }
+
+            // One listener on the table handles every View / Edit / Archive / Restore button.
+            document.getElementById("patientTable").addEventListener("click", function (event) {
+                page.handleTableButtonClick(event);
+            });
     }
 
     // ---------- Table ----------
 
     refreshTable() {
         const page = this;
-        const patients = patientService.searchPatients(this.searchKeyword);
+        const patients = this.showArchived
+            ? patientService.searchArchivedPatients(this.searchKeyword)
+            : patientService.searchPatients(this.searchKeyword);
 
         const columns = [
             { title: "Patient ID", getCellHtml: function (patient) { return patient.id; } },
@@ -93,7 +110,7 @@ class PatientsPage {
         ];
 
         document.getElementById("patientTable").innerHTML =
-            tableBuilder.buildTableHtml(columns, patients, "No patient records found.");
+            tableBuilder.buildTableHtml(columns, patients, this.showArchived ? "No archived patients." : "No patient records found.");
     }
 
     // Small labels for the patient list: "Senior" and/or "PWD", or "-" when the patient is neither.
@@ -112,10 +129,18 @@ class PatientsPage {
         return html;
     }
 
+
     // Only the buttons the current user may use are created.
     buildActionButtons(patient) {
-        let html = '<button class="btn sm ghost" data-action="view" data-id="' + patient.id + '">View</button>';
+        if (this.showArchived) {
+            let archivedHtml = '<button class="btn sm ghost" data-action="view" data-id="' + patient.id + '">View</button>';
+            if (permissionService.userCan("patients.archive")) {
+                archivedHtml += '<button class="btn sm" data-action="restore" data-id="' + patient.id + '">Restore</button>';
+            }
+            return archivedHtml;
+        }
 
+        let html = '<button class="btn sm ghost" data-action="view" data-id="' + patient.id + '">View</button>';
         if (permissionService.userCan("patients.edit")) {
             html += '<button class="btn sm ghost" data-action="edit" data-id="' + patient.id + '">Edit</button>';
         }
@@ -141,6 +166,8 @@ class PatientsPage {
                 this.openPatientForm(patientService.getPatientById(patientId));
             } else if (action === "archive") {
                 this.archivePatient(patientId);
+            } else if (action === "restore") {
+                this.restorePatient(patientId);
             }
         } catch (error) {
             notifier.showError(error.message);
@@ -156,6 +183,17 @@ class PatientsPage {
         patientService.archivePatient(patientId);
         notifier.showSuccess("Patient record archived.");
         this.refreshTable();
+    }
+
+    restorePatient(patientId) {
+    const confirmed = confirm("Restore this patient record? It will appear in the active list again.");
+    if (confirmed === false) {
+        return;
+    }
+
+    patientService.restorePatient(patientId);
+    notifier.showSuccess("Patient record restored.");
+    this.refreshTable();
     }
 
     // ---------- Add / Edit form ----------

@@ -47,6 +47,24 @@ class PatientService {
         return this.isSeniorBirthDate(patient.birthDate);
     }
 
+    // Matches a search typed with or without spaces, in any letter case.
+    // Checks the full name (first, middle, last), the reversed name, the patient ID and the contact number.
+    matchesSearch(patient, keyword) {
+        const normalize = function (text) {
+            return String(text || "").toLowerCase().replace(/[^a-z0-9]/g, "");
+        };
+        const typed = normalize(keyword);
+        if (typed === "") {
+            return true;
+        }
+        const fullName = normalize([patient.firstName, patient.middleName, patient.lastName].join(""));
+        const reversedName = normalize([patient.lastName, patient.firstName, patient.middleName].join(""));
+        return fullName.includes(typed) ||
+            reversedName.includes(typed) ||
+            normalize(patient.id).includes(typed) ||
+            normalize(patient.contactNumber).includes(typed);
+    }
+
     // The address is typed in three boxes (lot no., barangay, city).
     // This joins them into one line, for example "Lot 12, Brgy. Poblacion, Makati City".
     // "Lot" and "Brgy." are only added when the user did not already type them.
@@ -111,25 +129,15 @@ class PatientService {
         return null;
     }
 
-    // Matches the keyword against patient ID, first name, last name and contact number.
+    // Matches the keyword against the patient ID, the full name (with or without spaces),
+    // the reversed name and the contact number.
     searchPatients(keyword) {
         const allPatients = this.getActivePatients();
-        const searchText = keyword.toLowerCase().trim();
-
-        if (searchText === "") {
-            return allPatients;
-        }
-
         const matches = [];
-        for (let i = 0; i < allPatients.length; i++) {
-            const patient = allPatients[i];
-            const idMatches = patient.id.toLowerCase().includes(searchText);
-            const firstNameMatches = patient.firstName.toLowerCase().includes(searchText);
-            const lastNameMatches = patient.lastName.toLowerCase().includes(searchText);
-            const contactMatches = String(patient.contactNumber || "").includes(searchText);
 
-            if (idMatches || firstNameMatches || lastNameMatches || contactMatches) {
-                matches.push(patient);
+        for (let i = 0; i < allPatients.length; i++) {
+            if (this.matchesSearch(allPatients[i], keyword)) {
+                matches.push(allPatients[i]);
             }
         }
         return matches;
@@ -305,7 +313,47 @@ class PatientService {
         }
         throw new Error("Patient not found.");
     }
+    // Patients that were archived. Used by the Archived patients view.
+    getArchivedPatients() {
+        permissionService.requirePermission("patients.view");
 
+        const savedPatients = storageService.loadList("patients");
+        const result = [];
+        for (let i = 0; i < savedPatients.length; i++) {
+            if (savedPatients[i].isArchived === true) {
+                result.push(this.hideSensitiveFieldsIfNeeded(savedPatients[i]));
+            }
+        }
+        return result;
+    }
+
+    // Same search as the active list, but over archived patients only.
+    searchArchivedPatients(keyword) {
+        const archived = this.getArchivedPatients();
+        const matches = [];
+        for (let i = 0; i < archived.length; i++) {
+            if (this.matchesSearch(archived[i], keyword)) {
+                matches.push(archived[i]);
+            }
+        }
+        return matches;
+    }
+
+    // Puts an archived patient back in the active list. Medical records are kept as they were.
+    restorePatient(patientId) {
+        permissionService.requirePermission("patients.archive");
+
+        const savedPatients = storageService.loadList("patients");
+        for (let i = 0; i < savedPatients.length; i++) {
+            if (savedPatients[i].id === patientId) {
+                savedPatients[i].isArchived = false;
+                storageService.saveList("patients", savedPatients);
+                auditLogService.recordAction("Patient restored", patientId);
+                return;
+            }
+        }
+        throw new Error("Patient not found.");
+    }
 
    
     getPatientSelectOptions() {
@@ -315,6 +363,7 @@ class PatientService {
         for (let i = 0; i < patients.length; i++) {
             const patient = patients[i];
             const fullName = htmlHelper.getFullName(patient);
+            const nameWithoutSpaces = fullName.replace(/\s+/g, "");
             const contact = patient.contactNumber || "";
 
             const detailParts = [];
@@ -329,7 +378,8 @@ class PatientService {
                 value: patient.id,
                 label: patient.id + " - " + fullName,
                 detail: detailParts.join("  |  "),
-                searchText: fullName + " " + patient.id + " " + contact
+                // The name is included twice: once with spaces, once without, so both kinds of typing match.
+                searchText: fullName + " " + nameWithoutSpaces + " " + patient.id + " " + contact
             });
         }
         return options;

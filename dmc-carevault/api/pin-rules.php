@@ -2,7 +2,7 @@
 /*
  * api/pin-rules.php - rules shared by the sign-in PIN and the Settings PIN change.
  */
-const PIN_MAX_TRIES    = 5;    // wrong PINs allowed before the lock
+const PIN_MAX_TRIES    = 3;    // wrong PINs allowed before the lock
 const PIN_LOCK_MINUTES = 15;   // how long the lock lasts
 
 // Rejects PINs that are easy to guess: one repeated digit, or counting in order.

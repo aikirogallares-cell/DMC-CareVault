@@ -197,51 +197,86 @@ class QueuePage {
         dialog.open();
     }
 
-    // Walk-in: the patient joins today's line now, with the next queue number.
-    openWalkInDialog() {
-        const page = this;
-        const escape = htmlHelper.escapeText;
+        // Walk-in: the patient joins today's line now, with the next queue number.
+        // Walk-in: the patient joins today's line now, with the next queue number.
+        openWalkInDialog() {
+            const page = this;
+            const escape = htmlHelper.escapeText;
+            const patientList = patientService.getPatientSelectOptions();
 
-        let patientOptions = '<option value="">Choose a patient...</option>';
-        patientService.getPatientSelectOptions().forEach(function (option) {
-            patientOptions += '<option value="' + escape(option.value) + '">' + escape(option.label) + "</option>";
-        });
+            let reasonOptions = '<option value="">Choose a reason...</option>';
+            appointmentService.validReasons.forEach(function (reason) {
+                reasonOptions += "<option>" + escape(reason) + "</option>";
+            });
 
-        let reasonOptions = '<option value="">Choose a reason...</option>';
-        appointmentService.validReasons.forEach(function (reason) {
-            reasonOptions += "<option>" + escape(reason) + "</option>";
-        });
+            const body =
+                '<p class="popup-lead">The patient joins today\'s line now and is served in the order they arrived.</p>' +
+                '<div class="fg"><label for="walkSearch">Search patient (name, ID or contact number)</label>' +
+                '<input id="walkSearch" placeholder="Type to filter the list..." autocomplete="off"></div>' +
+                '<div class="fg"><label for="walkPatient">Patient</label>' +
+                '<select id="walkPatient" size="6"></select></div>' +
+                '<div class="fg"><label for="walkDoctor">Doctor (optional, the clinic can assign later)</label>' +
+                '<select id="walkDoctor">' + page.doctorOptionsHtml("") + "</select></div>" +
+                '<div class="fg"><label for="walkReason">Reason for visit</label>' +
+                '<select id="walkReason">' + reasonOptions + "</select></div>";
 
-        const body =
-            '<p class="popup-lead">The patient joins today\'s line now and is served in the order they arrived.</p>' +
-            '<div class="fg"><label for="walkPatient">Patient</label><select id="walkPatient">' + patientOptions + "</select></div>" +
-            '<div class="fg"><label for="walkDoctor">Doctor (optional, the clinic can assign later)</label>' +
-            '<select id="walkDoctor">' + page.doctorOptionsHtml("") + "</select></div>" +
-            '<div class="fg"><label for="walkReason">Reason for visit</label><select id="walkReason">' + reasonOptions + "</select></div>";
-
-        const dialog = new ModalDialog("Add walk-in to the queue", body, {
-            saveButtonText: "Add to queue",
-            onSave: function (openDialog) {
-                if (page.isSunday(dateHelper.getTodayString())) {
-                    throw new Error("The clinic is closed on Sundays. Walk-ins cannot be added today.");
+            const dialog = new ModalDialog("Add walk-in to the queue", body, {
+                saveButtonText: "Add to queue",
+                onSave: function (openDialog) {
+                    if (page.isSunday(dateHelper.getTodayString())) {
+                        throw new Error("The clinic is closed on Sundays. Walk-ins cannot be added today.");
+                    }
+                    const root = openDialog.getElement();
+                    appointmentService.saveAppointment({
+                        id: "",
+                        patientId: root.querySelector("#walkPatient").value,
+                        doctorUsername: root.querySelector("#walkDoctor").value,
+                        reason: root.querySelector("#walkReason").value,
+                        date: dateHelper.getTodayString(),
+                        priority: "Regular"
+                    });
+                    notifier.showSuccess("Walk-in added to the queue.");
+                    page.selectedDate = dateHelper.getTodayString();
+                    document.getElementById("queueDate").value = page.selectedDate;
+                    page.refreshTable();
                 }
-                const root = openDialog.getElement();
-                appointmentService.saveAppointment({
-                    id: "",
-                    patientId: root.querySelector("#walkPatient").value,
-                    doctorUsername: root.querySelector("#walkDoctor").value,
-                    reason: root.querySelector("#walkReason").value,
-                    date: dateHelper.getTodayString(),
-                    priority: "Regular"
-                });
-                notifier.showSuccess("Walk-in added to the queue.");
-                page.selectedDate = dateHelper.getTodayString();
-                document.getElementById("queueDate").value = page.selectedDate;
-                page.refreshTable();
+            });
+            dialog.open();
+
+            // Filter the patient list as the staff member types.
+            const root = dialog.getElement();
+            page.renderWalkInPatients(root, patientList, "");
+            root.querySelector("#walkSearch").addEventListener("input", function (event) {
+                page.renderWalkInPatients(root, patientList, event.target.value);
+            });
+            root.querySelector("#walkSearch").focus();
+        }
+
+        // Fills the patient list with the patients that match the search text.
+        renderWalkInPatients(root, patientList, keyword) {
+            const escape = htmlHelper.escapeText;
+            const text = String(keyword || "").toLowerCase().trim();
+            const select = root.querySelector("#walkPatient");
+            const previous = select.value;
+
+            let html = '<option value="">Choose a patient...</option>';
+            let shown = 0;
+            patientList.forEach(function (option) {
+                if (text === "" || option.searchText.toLowerCase().includes(text)) {
+                    html += '<option value="' + escape(option.value) + '">' + escape(option.label) + "</option>";
+                    shown = shown + 1;
+                }
+            });
+            select.innerHTML = html;
+
+            // Keeps the chosen patient selected while the list changes.
+            if (previous !== "" && select.querySelector('option[value="' + previous + '"]') !== null) {
+                select.value = previous;
             }
-        });
-        dialog.open();
-    }
+            if (shown === 0) {
+                select.innerHTML = '<option value="">No patient matches that search</option>';
+            }
+        }
 
     // Tells staff when a booked patient was called into the line or put on hold.
     announce(result) {

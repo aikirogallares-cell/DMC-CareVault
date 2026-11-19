@@ -1,4 +1,96 @@
 <?php
+
+// Returns the one Patient Records entry that matches ALL details of this account, or null.
+// Used only when the match is exact. Any doubt (none found, or more than one) returns null.
+function strong_match(PDO $pdo, array $acc): ?array {
+    $parts = preg_split('/\s+/', trim((string)$acc['full_name']));
+    if (count($parts) < 2) {
+        return null;
+    }
+    $last  = strtolower((string)array_pop($parts));
+    $given = strtolower(implode(' ', $parts));   // everything before the last name
+    $email = strtolower(trim((string)($acc['email'] ?? '')));
+    $phone = trim((string)($acc['contact_number'] ?? ''));
+    $birth = (string)($acc['birth_date'] ?? '');
+
+    if ($email === '' || $phone === '' || $birth === '') {
+        return null;
+    }
+
+    $st = $pdo->prepare("SELECT id FROM patients
+        WHERE is_archived = 0
+          AND LOWER(last_name) = ?
+          AND LOWER(CONCAT_WS(' ', first_name, middle_name)) = ?
+          AND birth_date = ?
+          AND contact_number = ?
+          AND LOWER(email) = ?
+          AND id NOT IN (SELECT patient_id FROM patient_accounts
+                         WHERE patient_id IS NOT NULL AND id <> ?)");
+    $st->execute([$last, $given, $birth, $phone, $email, (int)$acc['id']]);
+    $rows = $st->fetchAll();
+
+    return count($rows) === 1 ? $rows[0] : null;
+}
+
+// Finds existing Patient Records that may be the same person as this account.
+// Strong signal: last name + birth date. Supporting signals: contact number, email.
+// The admin always confirms; nothing is linked automatically.
+function find_patient_matches(PDO $pdo, array $acc): array {
+    $parts = preg_split('/\s+/', trim((string)$acc['full_name']));
+    $lastName = strtolower((string)end($parts));
+    $birth    = (string)$acc['birth_date'];
+    $contact  = trim((string)($acc['contact_number'] ?? ''));
+    $email    = strtolower(trim((string)($acc['email'] ?? '')));
+
+    $where = [];
+    $params = [];
+    if ($lastName !== '' && $birth !== '') {
+        $where[] = '(LOWER(last_name) = ? AND birth_date = ?)';
+        $params[] = $lastName;
+        $params[] = $birth;
+    }
+    if ($contact !== '') {
+        $where[] = 'contact_number = ?';
+        $params[] = $contact;
+    }
+    if ($email !== '') {
+        $where[] = 'LOWER(email) = ?';
+        $params[] = $email;
+    }
+    if (!$where) {
+        return [];
+    }
+
+    $st = $pdo->prepare('SELECT id, first_name, middle_name, last_name, birth_date, contact_number, email
+        FROM patients
+        WHERE is_archived = 0 AND (' . implode(' OR ', $where) . ')
+        ORDER BY last_name, first_name
+        LIMIT 20');
+    $st->execute($params);
+
+    $matches = [];
+    foreach ($st->fetchAll() as $row) {
+        $reasons = [];
+        if (strtolower((string)$row['last_name']) === $lastName && (string)$row['birth_date'] === $birth) {
+            $reasons[] = 'Name and birth date';
+        }
+        if ($contact !== '' && (string)$row['contact_number'] === $contact) {
+            $reasons[] = 'Contact number';
+        }
+        if ($email !== '' && strtolower((string)$row['email']) === $email) {
+            $reasons[] = 'Email';
+        }
+        $row['reasons'] = $reasons;
+        $matches[] = $row;
+    }
+
+    // Records that match on more signals come first.
+    usort($matches, function ($a, $b) {
+        return count($b['reasons']) <=> count($a['reasons']);
+    });
+    return $matches;
+}
+
 /*
  * api/patient-approvals.php - the Admin lists, approves and rejects patient registrations.
  * Approving also creates the patient's record in Patient Records.
@@ -11,6 +103,15 @@ if ($user['role'] !== 'Admin') {
 }
 
 $pdo = db();
+if (isset($_GET['matchFor'])) {
+    $st = $pdo->prepare('SELECT full_name, birth_date, contact_number, email FROM patient_accounts WHERE id = ?');
+    $st->execute([(int)$_GET['matchFor']]);
+    $acc = $st->fetch();
+    if (!$acc) {
+        throw new UserError('Account not found.');
+    }
+    json_out(['success' => true, 'matches' => find_patient_matches($pdo, $acc)]);
+}
 
 if ($_SERVER['REQUEST_METHOD'] === 'GET') {
     $filter = $_GET['status'] ?? 'Pending';
@@ -72,11 +173,11 @@ function create_patient_record(PDO $pdo, array $account): string {
     $allergies = !empty($account['allergy_history']) ? $account['allergy_history'] : 'None';
 
     $pdo->prepare('INSERT INTO patients
-        (id, first_name, middle_name, last_name, birth_date, gender, civil_status, contact_number, address,
-         emergency_name, emergency_relationship, emergency_contact_number,
-         blood_type, allergies, medical_conditions, current_medications,
-         date_registered, last_visit, is_archived, is_pwd)
-        VALUES (?, ?, NULL, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL, 0, 0)')
+        (id, first_name, middle_name, last_name, birth_date, gender, civil_status, contact_number, email, address,
+        emergency_name, emergency_relationship, emergency_contact_number,
+        blood_type, allergies, medical_conditions, current_medications,
+        date_registered, last_visit, is_archived, is_pwd)
+        VALUES (?, ?, NULL, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL, 0, 0)')
         ->execute([
             $patientId,
             $firstName,
@@ -85,6 +186,7 @@ function create_patient_record(PDO $pdo, array $account): string {
             $account['gender'],
             'Single',
             $account['contact_number'],
+            $account['email'] !== null && $account['email'] !== '' ? strtolower($account['email']) : null,
             $account['address'] ?: null,
             $isGuardianNeeded ? $account['guardian_name'] : null,
             $isGuardianNeeded ? $account['guardian_relationship'] : null,
@@ -94,20 +196,55 @@ function create_patient_record(PDO $pdo, array $account): string {
             $conditions,
             'None',
             date('Y-m-d'),
-        ]);
+    ]);
 
     return $patientId;
 }
 
 $in     = read_body();
 $id     = (int)($in['id'] ?? 0);
-$action = (string)($in['action'] ?? '');
+$action = (string)($_GET['action'] ?? $in['action'] ?? '');
 
 $st = $pdo->prepare('SELECT * FROM patient_accounts WHERE id = ?');
 $st->execute([$id]);
 $account = $st->fetch();
 if (!$account) {
     throw new UserError('Account not found.');
+}
+
+if ($action === 'link') {
+    $patientId = trim((string)($in['patientId'] ?? ''));
+    $st = $pdo->prepare('SELECT id FROM patients WHERE id = ? AND is_archived = 0');
+    $st->execute([$patientId]);
+    if (!$st->fetch()) {
+        throw new UserError('Patient record not found.');
+    }
+    $st = $pdo->prepare('SELECT id FROM patient_accounts WHERE patient_id = ? AND id <> ?');
+    $st->execute([$patientId, $id]);
+    if ($st->fetch()) {
+        throw new UserError('That record is already linked to another account.');
+    }
+    $pdo->prepare("UPDATE patient_accounts SET status = 'Approved', reject_reason = NULL, approved_by = ?, approved_at = NOW(), patient_id = ? WHERE id = ?")
+        ->execute([$user['username'], $patientId, $id]);
+    log_action($user['username'], $user['role'], 'Patient account linked', $account['username'] . ' -> ' . $patientId);
+    json_out(['success' => true, 'patientId' => $patientId]);
+}
+
+// Automatic link: only for approvals, and only when all four details match exactly one record.
+if ($action === 'approve' && empty($account['patient_id'])) {
+    $hit = strong_match($pdo, $account);
+    if ($hit !== null) {
+        $account['patient_id'] = $hit['id'];
+    }
+}
+
+// Possible matches that are not exact: the admin chooses. Only for approvals.
+if ($action === 'approve' && empty($account['patient_id']) && empty($in['createNew'])) {
+    $found = find_patient_matches($pdo, $account);
+    if ($found) {
+        json_out(['success' => false, 'needsReview' => true, 'matches' => $found,
+            'message' => 'A patient record may already exist. Link to it, or confirm this is a new patient.']);
+    }
 }
 
 if ($action === 'approve') {

@@ -79,13 +79,7 @@ class PrescriptionsPage {
     // Suggestions for the medicine name box. Each suggestion is a full label,
     // for example "Paracetamol (Biogesic) 500 mg Tablet". The doctor may type any name.
     buildSuggestionListHtml() {
-        const medications = medicationService.getAllMedications();
-        let html = '<datalist id="medicineSuggestions">';
-        for (let i = 0; i < medications.length; i++) {
-            html += '<option value="' + htmlHelper.escapeText(medicationService.getMedicationLabel(medications[i])) + '"></option>';
-        }
-        html += "</datalist>";
-        return html;
+        return "";
     }
 
     // Builds the options of a drop-down. The first option is an empty "Choose" line.
@@ -121,7 +115,7 @@ class PrescriptionsPage {
         ];
 
         let html = '<div class="medrow">';
-        html += '<input data-field="medicine" list="medicineSuggestions" placeholder="Type medicine name" autocomplete="off">';
+        html += '<input data-field="medicine" placeholder="Type medicine name" autocomplete="off">';
         html += '<input data-field="dosage" placeholder="e.g. 500 mg">';
         html += '<select data-field="frequency">' + this.buildOptionsHtml(frequencyOptions) + "</select>";
         html += '<input data-field="duration" placeholder="e.g. 7 days">';
@@ -235,24 +229,8 @@ class PrescriptionsPage {
         return html;
     }
 
-    // If the typed name is exactly a medicine in the list, fill the dosage box with its strength.
-    // Only fills the dosage when that box is still empty. Anything else is left for the doctor to type.
     fillDosageFromListedMedicine(nameBox) {
-        const row = nameBox.closest(".medrow");
-        const dosageBox = row.querySelector('[data-field="dosage"]');
-        if (dosageBox.value.trim() !== "") {
-            return;
-        }
-
-        const typedName = nameBox.value.trim().toLowerCase();
-        const medications = medicationService.getAllMedications();
-
-        for (let i = 0; i < medications.length; i++) {
-            if (medicationService.getMedicationLabel(medications[i]).toLowerCase() === typedName) {
-                dosageBox.value = medications[i].strength;
-                return;
-            }
-        }
+        // Medicines are typed by the doctor. The clinic no longer keeps a medicine list.
     }
 
     // Reads every medicine row. The name is the text the doctor typed.

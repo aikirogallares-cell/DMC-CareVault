@@ -15,7 +15,6 @@ class PageRegistry {
             { id: "consultations", fileName: "consultations.html", title: "Consultations", permission: "consultations.view", icon: "✎" },
             { id: "history", fileName: "medical-history.html", title: "Medical History", permission: "history.view", icon: "⌛" },
             { id: "prescriptions", fileName: "prescriptions.html", title: "Prescriptions", permission: "prescriptions.view", icon: "℞" },
-            { id: "medications", fileName: "medications.html", title: "Medications", permission: "medications.view", icon: "⚕" },
             { id: "billing", fileName: "billing.html", title: "Billing", permission: "billing.view", icon: "₱" },
             { id: "reports", fileName: "reports.html", title: "Reports", permission: "reports.view", icon: "▤" },
             { id: "users", fileName: "users.html", title: "User Management", permission: "users.manage", icon: "⚙" },
