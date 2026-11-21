@@ -99,7 +99,7 @@ class UsersPage {
         const page = this;
         const isEditing = userToEdit !== null;
 
-        let passwordLabel = "Password (minimum 8 characters)";
+        let passwordLabel = "Password (8+ characters, upper, lower, number, special)";
         if (isEditing) {
             passwordLabel = "New Password (leave blank to keep the old one)";
         }
@@ -134,6 +134,7 @@ class UsersPage {
             }
         });
         dialog.open();
+        validator.attachPasswordStrengthMeter("field_password");
     }
 }
 

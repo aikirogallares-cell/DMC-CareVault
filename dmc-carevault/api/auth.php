@@ -5,6 +5,7 @@
  * bcrypt hashes in the `users` table.
  */
 require __DIR__ . '/config.php';
+require_once __DIR__ . '/password-rules.php';
 
 $action = $_GET['action'] ?? '';
 $in = read_body();
@@ -67,8 +68,9 @@ if ($action === 'changePassword') {
     if (!$hash || !password_verify($current, $hash)) {
         throw new UserError('Current password is incorrect.');
     }
-    if (strlen($new) < 8) {
-        throw new UserError('Password must be at least 8 characters.');
+    $ruleError = password_rule_error($new);
+    if ($ruleError !== null) {
+        throw new UserError($ruleError);
     }
 
     $st = db()->prepare('UPDATE users SET password_hash = ? WHERE id = ?');
