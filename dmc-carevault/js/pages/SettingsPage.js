@@ -30,7 +30,7 @@ class SettingsPage {
     buildPasswordFields() {
         return [
             { name: "currentPassword", label: "Current Password", type: "password", isFullWidth: true },
-            { name: "newPassword", label: "New Password (minimum 8 characters)", type: "password" },
+            { name: "newPassword", label: "New Password (8+ characters, upper, lower, number, special)", type: "password" },
             { name: "confirmPassword", label: "Confirm New Password", type: "password" }
         ];
     }
@@ -87,6 +87,7 @@ class SettingsPage {
         html += '<div class="err" id="passwordMessage"></div><button class="btn" id="passwordButton">Update Password</button></div>';
 
         this.mainElement.innerHTML = html;
+        validator.attachPasswordStrengthMeter("field_newPassword");
 
         const page = this;
         document.getElementById("pinButton").addEventListener("click", function () {

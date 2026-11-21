@@ -71,11 +71,101 @@ class Validator {
         return "";
     }
 
+    // ----- Password policy (same rules for Admin, Staff and Doctor) -----
+    // The server repeats these rules in api/password-rules.php. Keep the two lists the same.
+
+    // Returns the rules in order. Each one says whether the password passes it.
+    getPasswordRules(value) {
+        const text = String(value || "");
+        return [
+            { label: "at least 8 characters", passed: text.length >= 8 },
+            { label: "1 uppercase letter (A-Z)", passed: /[A-Z]/.test(text) },
+            { label: "1 lowercase letter (a-z)", passed: /[a-z]/.test(text) },
+            { label: "1 number (0-9)", passed: /[0-9]/.test(text) },
+            { label: "1 special character (! @ # $ % & *)", passed: /[!@#$%&*]/.test(text) }
+        ];
+    }
+
+    // Returns the text of the rules the password does not follow yet.
+    getMissingPasswordRules(value) {
+        const missing = [];
+        const rules = this.getPasswordRules(value);
+        for (let i = 0; i < rules.length; i++) {
+            if (!rules[i].passed) {
+                missing.push(rules[i].label);
+            }
+        }
+        return missing;
+    }
+
     checkPassword(value) {
-        if (value.length < 8) {
-            return "Password must be at least 8 characters.";
+        const missing = this.getMissingPasswordRules(value);
+        if (missing.length > 0) {
+            return "Password must have " + missing.join(", ") + ".";
         }
         return "";
+    }
+
+    // Returns { level, text, color, percent } for the strength bar.
+    getPasswordStrength(value) {
+        const text = String(value || "");
+        const rules = this.getPasswordRules(text);
+        let passedCount = 0;
+        for (let i = 0; i < rules.length; i++) {
+            if (rules[i].passed) {
+                passedCount = passedCount + 1;
+            }
+        }
+
+        if (passedCount === rules.length && text.length >= 12) {
+            return { level: 4, text: "Strong", color: "var(--gd)", percent: 100 };
+        }
+        if (passedCount === rules.length) {
+            return { level: 3, text: "Good", color: "var(--g)", percent: 75 };
+        }
+        if (passedCount >= 3) {
+            return { level: 2, text: "Fair", color: "var(--amb)", percent: 50 };
+        }
+        return { level: 1, text: "Weak", color: "var(--red)", percent: 25 };
+    }
+
+    // Shows a strength bar under a password box. It stays hidden while the box is empty.
+    // inputId is the id of the password box, for example "field_password".
+    attachPasswordStrengthMeter(inputId) {
+        const input = document.getElementById(inputId);
+        if (input === null) {
+            return;
+        }
+
+        const meter = document.createElement("div");
+        meter.style.marginTop = "6px";
+        meter.style.display = "none";
+        meter.innerHTML =
+            '<div style="height:6px;background:var(--bd);border-radius:4px;overflow:hidden">' +
+            '<div data-bar style="height:100%;width:0;transition:width .2s"></div></div>' +
+            '<div data-text style="font-size:12px;margin-top:4px"></div>';
+        input.insertAdjacentElement("afterend", meter);
+
+        const bar = meter.querySelector("[data-bar]");
+        const label = meter.querySelector("[data-text]");
+        const validatorObject = this;
+
+        input.addEventListener("input", function () {
+            if (input.value === "") {
+                meter.style.display = "none";
+                return;
+            }
+
+            const strength = validatorObject.getPasswordStrength(input.value);
+            const missing = validatorObject.getMissingPasswordRules(input.value);
+
+            meter.style.display = "block";
+            bar.style.width = strength.percent + "%";
+            bar.style.background = strength.color;
+            label.style.color = strength.color;
+            label.textContent = "Strength: " + strength.text +
+                (missing.length > 0 ? " (needs " + missing.join(", ") + ")" : "");
+        });
     }
 
     // Uses the local date, so a baby born today (even early in the morning) is accepted.

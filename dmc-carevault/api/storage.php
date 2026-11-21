@@ -9,6 +9,7 @@
  * POST storage.php?name=auditLogs           -> body { action, details }  (adds one log line)
  */
 require __DIR__ . '/config.php';
+require_once __DIR__ . '/password-rules.php';
 
 $user   = require_login();
 $name   = $_GET['name'] ?? '';
@@ -216,14 +217,16 @@ function save_users(PDO $pdo, array $u, bool $isNew, array $me): void {
 
     $password = (string)($u['plainPassword'] ?? '');
     if ($isNew) {
-        if (strlen($password) < 8) {
-            throw new UserError('Password must be at least 8 characters.');
+        $ruleError = password_rule_error($password);
+        if ($ruleError !== null) {
+            throw new UserError($ruleError);
         }
         $row['username'] = $username;
         $row['password_hash'] = password_hash($password, PASSWORD_DEFAULT);
     } elseif ($password !== '') {
-        if (strlen($password) < 8) {
-            throw new UserError('Password must be at least 8 characters.');
+        $ruleError = password_rule_error($password);
+        if ($ruleError !== null) {
+            throw new UserError($ruleError);
         }
         $row['password_hash'] = password_hash($password, PASSWORD_DEFAULT);
     }
